@@ -45,7 +45,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       } else if (isGuestMode) {
         // No user signed in, and they requested guest mode.
-        // This is where the Firebase error happens if the API is blocked.
         try {
           await signInAnonymously(auth);
           // onAuthStateChanged will be re-triggered by the line above,
