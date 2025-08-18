@@ -24,12 +24,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const isGuestMode = params.get('guest') === 'true';
 
       if (firebaseUser) {
-        // User is signed in (Google or Anonymous)
+        // User is signed in (Google or successfully as Anonymous)
         const userRef = doc(db, 'users', firebaseUser.uid);
         const userSnap = await getDoc(userRef);
         
         if (userSnap.exists()) {
-          // User document already exists, just set it
           setUser(userSnap.data() as User);
         } else {
           // New user, create the user document in Firestore
@@ -45,7 +44,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
            setUser(newUser);
         }
       } else if (isGuestMode) {
-        // No user is signed in, but they want to be a guest
+        // No user signed in, and they requested guest mode.
+        // This is where the Firebase error happens if the API is blocked.
         try {
           await signInAnonymously(auth);
           // onAuthStateChanged will be re-triggered by the line above,
