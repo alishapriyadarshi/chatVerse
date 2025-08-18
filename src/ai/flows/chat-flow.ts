@@ -56,6 +56,6 @@ const chatFlow = ai.defineFlow(
   },
   async (input) => {
     const llmResponse = await prompt(input);
-    return llmResponse.text();
+    return llmResponse.text;
   }
 );
