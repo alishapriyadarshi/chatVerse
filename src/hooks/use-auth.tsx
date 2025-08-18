@@ -24,40 +24,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const isGuestMode = params.get('guest') === 'true';
 
       if (firebaseUser) {
-        // This handles all authenticated users: Google, Anonymous, etc.
+        // User is signed in (Google or Anonymous)
         const userRef = doc(db, 'users', firebaseUser.uid);
         const userSnap = await getDoc(userRef);
         
         if (userSnap.exists()) {
+          // User document already exists, just set it
           setUser(userSnap.data() as User);
         } else {
+          // New user, create the user document in Firestore
           const { uid, displayName, photoURL, isAnonymous } = firebaseUser;
-           const newUser: User = isAnonymous 
-           ? {
+           const newUser: User = {
               id: uid,
-              name: `Guest #${uid.slice(0, 4)}`,
-              avatarUrl: `https://placehold.co/100x100?text=G`,
-              secretId: `GUEST-${uid.slice(0, 8).toUpperCase()}`,
-              isGuest: true,
-            }
-           : {
-              id: uid,
-              name: displayName || 'User',
-              avatarUrl: photoURL || `https://placehold.co/100x100?text=${displayName?.[0] || 'U'}`,
-              secretId: `USER-${uid.slice(0, 8).toUpperCase()}`,
-           };
+              name: isAnonymous ? `Guest #${uid.slice(0, 4)}` : displayName || 'User',
+              avatarUrl: isAnonymous ? `https://placehold.co/100x100?text=G` : photoURL || `https://placehold.co/100x100?text=${displayName?.[0] || 'U'}`,
+              secretId: isAnonymous ? `GUEST-${uid.slice(0, 8).toUpperCase()}`: `USER-${uid.slice(0, 8).toUpperCase()}`,
+              isGuest: isAnonymous,
+            };
            await setDoc(userRef, newUser);
            setUser(newUser);
         }
       } else if (isGuestMode) {
-        // If there's no firebaseUser but the URL indicates a guest, try to sign in.
+        // No user is signed in, but they want to be a guest
         try {
           await signInAnonymously(auth);
-          // onAuthStateChanged will be triggered again by the line above,
-          // so we don't need to do anything else here.
+          // onAuthStateChanged will be re-triggered by the line above,
+          // which will then handle the user document creation.
         } catch (error) {
-          // ** WORKAROUND **
-          // If anonymous sign-in fails (e.g., API not enabled or blocked), create a local guest user
           console.error("Anonymous sign-in failed, creating a local guest user as a fallback:", error);
           const localGuestId = `local-guest-${Date.now()}`;
           const localGuestUser: User = {
