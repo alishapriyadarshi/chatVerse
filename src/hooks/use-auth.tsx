@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         } catch (error) {
           // ** WORKAROUND **
-          // If anonymous sign-in fails (e.g., API not enabled), create a local guest user
+          // If anonymous sign-in fails (e.g., API not enabled or blocked), create a local guest user
           console.error("Anonymous sign-in failed, creating a local guest user as a fallback:", error);
           const localGuestId = `local-guest-${Date.now()}`;
           const localGuestUser: User = {
