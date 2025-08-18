@@ -24,16 +24,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const isGuestMode = params.get('guest') === 'true';
 
       if (isGuestMode && !firebaseUser) {
-        // If guest mode is requested and no user is logged in, sign in anonymously.
-        // onAuthStateChanged will be triggered again with the new user.
         try {
+          // Attempt to sign in anonymously
           await signInAnonymously(auth);
+          // onAuthStateChanged will be triggered again with the new user, so we wait.
+          return;
         } catch (error) {
-          console.error("Anonymous sign-in failed:", error);
+          // ** WORKAROUND **
+          // If anonymous sign-in fails (e.g., API not enabled), create a local guest user
+          console.error("Anonymous sign-in failed, creating a local guest user as a fallback:", error);
+          const localGuestId = `local-guest-${Date.now()}`;
+          const localGuestUser: User = {
+            id: localGuestId,
+            name: `Guest #${localGuestId.slice(-4)}`,
+            avatarUrl: `https://placehold.co/100x100?text=G`,
+            secretId: `GUEST-${localGuestId.slice(-8).toUpperCase()}`,
+            isGuest: true,
+          };
+          setUser(localGuestUser);
           setLoading(false);
+          return;
         }
-        // Return early, wait for the next auth state change
-        return;
       }
 
       if (firebaseUser) {
@@ -43,8 +54,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (userSnap.exists()) {
           setUser(userSnap.data() as User);
         } else {
-          // This block will now correctly handle both new Google users and new anonymous users
-           const { uid, displayName, photoURL, isAnonymous } = firebaseUser;
+          const { uid, displayName, photoURL, isAnonymous } = firebaseUser;
            const newUser: User = isAnonymous 
            ? {
               id: uid,
@@ -62,7 +72,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
            await setDoc(userRef, newUser);
            setUser(newUser);
         }
-      } else {
+      } else if (!isGuestMode) {
+        // Only set user to null if not in a guest flow
         setUser(null);
       }
       setLoading(false);
