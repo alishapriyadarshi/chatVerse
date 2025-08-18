@@ -1,10 +1,9 @@
 'use client';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider, signInAnonymously } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -53,6 +52,19 @@ export function AuthForm() {
       });
     }
   };
+
+  const handleGuestSignIn = async () => {
+    try {
+      router.push('/chat?guest=true');
+    } catch (error) {
+       console.error("Error signing in as Guest: ", error);
+       toast({
+        title: 'Sign In Failed',
+        description: 'Could not sign you in as Guest. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
   
   return (
     <Card className="w-full max-w-sm frosted-glass bg-card/80 border-border/30 shadow-2xl">
@@ -69,10 +81,8 @@ export function AuthForm() {
             <GoogleIcon className="mr-2" />
             Sign In with Google
         </Button>
-        <Button asChild variant="secondary" size="lg" className="bg-accent/70 hover:bg-accent text-accent-foreground">
-          <Link href="/chat?guest=true">
+        <Button variant="secondary" size="lg" className="bg-accent/70 hover:bg-accent text-accent-foreground" onClick={handleGuestSignIn}>
             Continue as Guest
-          </Link>
         </Button>
       </CardContent>
     </Card>

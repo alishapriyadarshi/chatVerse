@@ -1,4 +1,5 @@
 import type { User, Conversation, Message } from './types';
+import { Timestamp } from 'firebase/firestore';
 
 // LOGGED_IN_USER is now managed by Firebase Auth, but we keep it for dummy conversations
 export const LOGGED_IN_USER: User = {
@@ -48,21 +49,21 @@ twoMinutesAgo.setMinutes(twoMinutesAgo.getMinutes() - 2);
 
 export const DUMMY_MESSAGES: { [conversationId: string]: Message[] } = {
   'conv-1': [
-    { id: 'msg-1-1', sender: DUMMY_USERS[1], text: 'Hey Alice!', timestamp: yesterday },
-    { id: 'msg-1-2', sender: LOGGED_IN_USER, text: 'Hi Bob! How are you?', timestamp: tenMinutesAgo },
-    { id: 'msg-1-3', sender: DUMMY_USERS[1], text: 'Doing great! Just checking in.', timestamp: fiveMinutesAgo },
-    { id: 'msg-1-4', sender: DUMMY_USERS[1], text: 'Check out this cool image!', imageUrl: 'https://placehold.co/600x400', timestamp: fiveMinutesAgo },
+    { id: 'msg-1-1', sender: DUMMY_USERS[1], text: 'Hey Alice!', timestamp: Timestamp.fromDate(yesterday) },
+    { id: 'msg-1-2', sender: LOGGED_IN_USER, text: 'Hi Bob! How are you?', timestamp: Timestamp.fromDate(tenMinutesAgo) },
+    { id: 'msg-1-3', sender: DUMMY_USERS[1], text: 'Doing great! Just checking in.', timestamp: Timestamp.fromDate(fiveMinutesAgo) },
+    { id: 'msg-1-4', sender: DUMMY_USERS[1], text: 'Check out this cool image!', imageUrl: 'https://placehold.co/600x400', timestamp: Timestamp.fromDate(fiveMinutesAgo) },
   ],
   'conv-2': [
-    { id: 'msg-2-1', sender: DUMMY_USERS[2], text: 'Project update?', timestamp: yesterday },
-    { id: 'msg-2-2', sender: DUMMY_USERS[3], text: 'I pushed the latest changes.', timestamp: tenMinutesAgo },
-    { id: 'msg-2-3', sender: LOGGED_IN_USER, text: 'Awesome, I\'ll review them now.', timestamp: fiveMinutesAgo },
+    { id: 'msg-2-1', sender: DUMMY_USERS[2], text: 'Project update?', timestamp: Timestamp.fromDate(yesterday) },
+    { id: 'msg-2-2', sender: DUMMY_USERS[3], text: 'I pushed the latest changes.', timestamp: Timestamp.fromDate(tenMinutesAgo) },
+    { id: 'msg-2-3', sender: LOGGED_IN_USER, text: 'Awesome, I\'ll review them now.', timestamp: Timestamp.fromDate(fiveMinutesAgo) },
   ],
   'conv-3': [
-    { id: 'msg-3-1', sender: DUMMY_USERS[3], text: 'Lunch tomorrow?', timestamp: twoMinutesAgo },
+    { id: 'msg-3-1', sender: DUMMY_USERS[3], text: 'Lunch tomorrow?', timestamp: Timestamp.fromDate(twoMinutesAgo) },
   ],
   'conv-gemini': [
-    { id: 'msg-gem-1', sender: GEMINI_USER, text: 'Hello! How can I help you today?', timestamp: new Date() },
+    { id: 'msg-gem-1', sender: GEMINI_USER, text: 'Hello! How can I help you today?', timestamp: Timestamp.now() },
   ],
 };
 
@@ -75,6 +76,7 @@ export const DUMMY_CONVERSATIONS: Conversation[] = [
     avatarUrl: GEMINI_USER.avatarUrl,
     lastMessage: DUMMY_MESSAGES['conv-gemini'][0],
     unreadCount: 1,
+    participantIds: [LOGGED_IN_USER.id, GUEST_USER.id, GEMINI_USER.id],
   },
   {
     id: 'conv-1',
@@ -84,6 +86,7 @@ export const DUMMY_CONVERSATIONS: Conversation[] = [
     avatarUrl: DUMMY_USERS[1].avatarUrl,
     lastMessage: DUMMY_MESSAGES['conv-1'][DUMMY_MESSAGES['conv-1'].length - 1],
     unreadCount: 2,
+    participantIds: [LOGGED_IN_USER.id, DUMMY_USERS[1].id],
   },
   {
     id: 'conv-2',
@@ -93,6 +96,7 @@ export const DUMMY_CONVERSATIONS: Conversation[] = [
     avatarUrl: 'https://placehold.co/100x100',
     lastMessage: DUMMY_MESSAGES['conv-2'][DUMMY_MESSAGES['conv-2'].length - 1],
     unreadCount: 0,
+    participantIds: [LOGGED_IN_USER.id, DUMMY_USERS[2].id, DUMMY_USERS[3].id],
   },
   {
     id: 'conv-3',
@@ -102,5 +106,6 @@ export const DUMMY_CONVERSATIONS: Conversation[] = [
     avatarUrl: DUMMY_USERS[3].avatarUrl,
     lastMessage: DUMMY_MESSAGES['conv-3'][DUMMY_MESSAGES['conv-3'].length - 1],
     unreadCount: 1,
+    participantIds: [LOGGED_IN_USER.id, DUMMY_USERS[3].id],
   },
 ];

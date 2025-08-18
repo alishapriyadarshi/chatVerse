@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Avatar,
   AvatarFallback,
@@ -28,28 +28,57 @@ import {
   Settings,
 } from 'lucide-react';
 import type { Conversation, User } from '@/lib/types';
-import { DUMMY_CONVERSATIONS, GUEST_USER } from '@/lib/dummy-data';
-import { useSearchParams } from 'next/navigation';
+import { GEMINI_USER } from '@/lib/dummy-data';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 export function SidebarContentComponent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
-  const isGuest = searchParams.get('guest') === 'true';
-  const { user } = useAuth();
-  const [currentUser, setCurrentUser] = useState<User | null>(isGuest ? GUEST_USER : user);
+  const { user: currentUser } = useAuth();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+
+  const isGuest = currentUser?.isGuest || false;
 
   useEffect(() => {
-    setCurrentUser(isGuest ? GUEST_USER : user);
-  }, [isGuest, user]);
-  
-  const conversations = DUMMY_CONVERSATIONS;
+    if (!currentUser) return;
 
+    const q = query(
+      collection(db, 'conversations'),
+      where('participantIds', 'array-contains', currentUser.id)
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const convos: Conversation[] = [];
+      querySnapshot.forEach((doc) => {
+        convos.push({ id: doc.id, ...doc.data() } as Conversation);
+      });
+      // Add Gemini conversation if it doesn't exist for the user
+      if (!convos.some(c => c.id === 'conv-gemini')) {
+        const geminiConv: Conversation = {
+            id: 'conv-gemini',
+            type: 'direct',
+            participants: [currentUser, GEMINI_USER],
+            participantIds: [currentUser.id, GEMINI_USER.id],
+            name: GEMINI_USER.name,
+            avatarUrl: GEMINI_USER.avatarUrl,
+            lastMessage: null,
+            unreadCount: 1,
+        };
+        convos.unshift(geminiConv);
+      }
+
+      setConversations(convos);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+  
   const getInitials = (name: string) => {
     if (!name) return '??';
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -112,21 +141,24 @@ export function SidebarContentComponent() {
           </SidebarGroupLabel>
           <SidebarMenu>
             {conversations.map((conv) => {
-              const Icon = conv.type === 'group' ? Users : MessageSquare;
               const linkHref = getLinkHref(`/chat/${conv.id}`);
+              const otherParticipant = conv.type === 'direct' ? conv.participants.find(p => p.id !== currentUser.id && p.id !== GEMINI_USER.id) : null;
+              const name = conv.name || otherParticipant?.name || 'Conversation';
+              const avatarUrl = conv.avatarUrl || otherParticipant?.avatarUrl;
+
               return (
                 <SidebarMenuItem key={conv.id}>
                   <Link href={linkHref}>
                     <SidebarMenuButton
                       isActive={pathname === `/chat/${conv.id}`}
                       className="justify-start w-full"
-                      tooltip={conv.name}
+                      tooltip={name}
                     >
                        <Avatar className="h-6 w-6">
-                        <AvatarImage src={conv.avatarUrl} alt={conv.name} />
-                        <AvatarFallback>{getInitials(conv.name ?? 'U')}</AvatarFallback>
+                        <AvatarImage src={avatarUrl} alt={name} />
+                        <AvatarFallback>{getInitials(name ?? 'U')}</AvatarFallback>
                       </Avatar>
-                      <span className="truncate">{conv.name}</span>
+                      <span className="truncate">{name}</span>
                        {conv.unreadCount > 0 && (
                         <div className="ml-auto h-5 min-w-[1.25rem] rounded-full bg-accent text-accent-foreground text-xs flex items-center justify-center px-1">
                           {conv.unreadCount}
@@ -152,7 +184,7 @@ export function SidebarContentComponent() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton className="justify-start w-full" tooltip="Log Out" onClick={handleLogout}>
+            <SidebarMenuButton className="justify-start w-full" tooltip="Log Out" onClick={handleLogout} disabled={isGuest}>
               <LogOut />
               <span>Log Out</span>
             </SidebarMenuButton>

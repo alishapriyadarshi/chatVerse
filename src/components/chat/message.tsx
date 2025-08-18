@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Message as MessageType, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Timestamp } from 'firebase/firestore';
 
 interface MessageProps {
   message: MessageType;
@@ -15,8 +16,21 @@ export function Message({ message, currentUser }: MessageProps) {
   const [timestamp, setTimestamp] = useState('');
 
   useEffect(() => {
+    const getTimestamp = () => {
+        let date: Date;
+        if (message.timestamp instanceof Timestamp) {
+            date = message.timestamp.toDate();
+        } else if (message.timestamp instanceof Date) {
+            date = message.timestamp;
+        } else {
+            return 'sending...';
+        }
+        return formatDistanceToNow(date, { addSuffix: true });
+    }
+
+
     const updateTimestamp = () => {
-      setTimestamp(formatDistanceToNow(new Date(message.timestamp), { addSuffix: true }));
+      setTimestamp(getTimestamp());
     };
 
     updateTimestamp();
@@ -28,6 +42,7 @@ export function Message({ message, currentUser }: MessageProps) {
   const isSender = message.sender.id === currentUser.id;
   
   const getInitials = (name: string) => {
+    if (!name) return '??'
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
@@ -65,8 +80,8 @@ export function Message({ message, currentUser }: MessageProps) {
       </div>
        {isSender && (
         <Avatar className="h-8 w-8">
-          <AvatarImage src={message.sender.avatarUrl} />
-          <AvatarFallback>{getInitials(message.sender.name)}</AvatarFallback>
+          <AvatarImage src={currentUser.avatarUrl} />
+          <AvatarFallback>{getInitials(currentUser.name)}</AvatarFallback>
         </Avatar>
       )}
     </div>

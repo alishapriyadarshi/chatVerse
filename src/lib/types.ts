@@ -1,3 +1,5 @@
+import type { Timestamp } from 'firebase/firestore';
+
 export type User = {
   id: string;
   name: string;
@@ -11,7 +13,7 @@ export type Message = {
   sender: User;
   text: string;
   imageUrl?: string;
-  timestamp: Date;
+  timestamp: Timestamp | Date; // Allow both for local and server data
 };
 
 export type Conversation = {
@@ -19,7 +21,8 @@ export type Conversation = {
   type: 'group' | 'direct';
   name?: string; // For groups
   participants: User[];
-  lastMessage: Message;
+  lastMessage: Message | null;
   unreadCount: number;
   avatarUrl?: string; // For groups or direct chat partner
+  participantIds: string[];
 };

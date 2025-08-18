@@ -1,10 +1,10 @@
 import { MessageSquareDashed } from 'lucide-react';
-import { redirect } from 'next/navigation';
 
-export default function ChatPage({ searchParams }: { searchParams: { guest?: string } }) {
-  const isGuest = searchParams.guest === 'true';
-  const href = isGuest ? '/chat/conv-1?guest=true' : '/chat/conv-1';
-  redirect(href);
+export default function ChatPage() {
+  // This will redirect to the first conversation or a specific one
+  // The logic in layout.tsx or a future component will handle the actual redirection
+  // based on the user's conversations.
+  // For now, we show a placeholder.
 
   return (
     <div className="flex h-full flex-col items-center justify-center bg-card/75 backdrop-blur-xl rounded-2xl">

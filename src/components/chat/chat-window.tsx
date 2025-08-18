@@ -1,9 +1,9 @@
 'use client';
-import { DUMMY_CONVERSATIONS, DUMMY_MESSAGES, GUEST_USER, GEMINI_USER } from '@/lib/dummy-data';
+import { DUMMY_CONVERSATIONS, GEMINI_USER } from '@/lib/dummy-data';
 import type { Conversation, Message as MessageType, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Phone, Video } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import { Message } from './message';
 import { MessageInput } from './message-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -11,21 +11,93 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { chat } from '@/ai/flows/chat-flow';
 import { useAuth } from '@/hooks/use-auth';
+import { db, storage } from '@/lib/firebase';
+import { collection, query, orderBy, onSnapshot, doc, getDoc, addDoc, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatWindowProps {
   conversationId: string;
 }
 
 export function ChatWindow({ conversationId }: ChatWindowProps) {
-  const searchParams = useSearchParams();
-  const isGuest = searchParams.get('guest') === 'true';
-  const { user } = useAuth();
-  const currentUser = isGuest ? GUEST_USER : user;
+  const { user: currentUser } = useAuth();
+  const { toast } = useToast();
 
-  const conversation = DUMMY_CONVERSATIONS.find((c) => c.id === conversationId);
-  const [messages, setMessages] = useState<MessageType[]>(DUMMY_MESSAGES[conversationId] || []);
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [messages, setMessages] = useState<MessageType[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!currentUser) return;
+  
+    let unsubConversation: () => void;
+  
+    const fetchConversation = async () => {
+      if (conversationId === 'conv-gemini') {
+        // This is a virtual conversation, create it on the fly
+        setConversation({
+          id: 'conv-gemini',
+          type: 'direct',
+          participants: [currentUser, GEMINI_USER],
+          participantIds: [currentUser.id, GEMINI_USER.id],
+          name: GEMINI_USER.name,
+          avatarUrl: GEMINI_USER.avatarUrl,
+          lastMessage: null,
+          unreadCount: 0,
+        });
+      } else {
+        const convRef = doc(db, 'conversations', conversationId);
+        unsubConversation = onSnapshot(convRef, (doc) => {
+          if (doc.exists()) {
+            setConversation({ id: doc.id, ...doc.data() } as Conversation);
+          } else {
+            console.error("Conversation not found!");
+            setConversation(null);
+          }
+        });
+      }
+    };
+  
+    fetchConversation();
+  
+    return () => {
+      if (unsubConversation) {
+        unsubConversation();
+      }
+    };
+  }, [conversationId, currentUser]);
+  
+  useEffect(() => {
+    if (!conversationId || conversationId === 'conv-gemini') {
+        if (conversationId === 'conv-gemini') {
+            setMessages([{
+                id: 'gem-intro',
+                sender: GEMINI_USER,
+                text: "Hello! How can I help you today?",
+                timestamp: new Date(),
+            }]);
+        }
+        return;
+    };
+
+    const messagesQuery = query(
+      collection(db, 'conversations', conversationId, 'messages'),
+      orderBy('timestamp', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(messagesQuery, (querySnapshot) => {
+      const msgs: MessageType[] = [];
+      querySnapshot.forEach((doc) => {
+        msgs.push({ id: doc.id, ...doc.data() } as MessageType);
+      });
+      setMessages(msgs);
+    });
+
+    return () => unsubscribe();
+  }, [conversationId]);
+
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -39,52 +111,75 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
     }
   }, [messages]);
 
-  if (!currentUser) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <p>Loading...</p>
-      </div>
-    );
-  }
+  const handleSendMessage = async (text: string, imageDataUrl?: string) => {
+    if (!currentUser || !conversation) return;
+    if (!text.trim() && !imageDataUrl) return;
 
-  if (!conversation) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <p>Conversation not found.</p>
-      </div>
-    );
-  }
+    let imageUrl: string | undefined = undefined;
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  };
-
-  const handleSendMessage = async (text: string, imageUrl?: string) => {
-    const newMessage: MessageType = {
-      id: `msg-${Date.now()}`,
-      sender: currentUser,
-      text,
-      timestamp: new Date(),
-      imageUrl,
-    };
+    if (imageDataUrl) {
+        if(currentUser.isGuest) {
+            toast({
+                title: "Feature unavailable for guests",
+                description: "Guests cannot send images.",
+                variant: "destructive"
+            });
+            return;
+        }
+      const storageRef = ref(storage, `chat-images/${conversation.id}/${Date.now()}`);
+      try {
+        await uploadString(storageRef, imageDataUrl, 'data_url');
+        imageUrl = await getDownloadURL(storageRef);
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        toast({ title: 'Image Upload Failed', description: 'Could not upload your image. Please try again.', variant: 'destructive' });
+        return;
+      }
+    }
     
-    const updatedMessages = [...messages, newMessage];
-    setMessages(updatedMessages);
+    const newMessage: Omit<MessageType, 'id' | 'timestamp'> & { timestamp: any } = {
+      sender: {
+        id: currentUser.id,
+        name: currentUser.name,
+        avatarUrl: currentUser.avatarUrl,
+      },
+      text,
+      imageUrl,
+      timestamp: serverTimestamp(),
+    };
 
+    const isGeminiConversation = conversation.id === 'conv-gemini';
+
+    const tempMessageId = `temp-${Date.now()}`;
+    const optimisticMessage: MessageType = {
+        ...newMessage,
+        id: tempMessageId,
+        timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, optimisticMessage]);
+
+    if (!isGeminiConversation) {
+        await addDoc(collection(db, 'conversations', conversation.id, 'messages'), newMessage);
+    }
+    
     const shouldGeminiRespond = 
+      isGeminiConversation ||
       conversation.participants.some(p => p.id === GEMINI_USER.id) ||
       text.toLowerCase().includes('@gemini');
 
     if (shouldGeminiRespond) {
       setIsTyping(true);
       try {
-        const history = updatedMessages.map(msg => ({
-          role: msg.sender.id === currentUser.id ? 'user' as const : 'model' as const,
-          content: msg.text,
-        }));
+        const history = [...messages, optimisticMessage]
+            .slice(-10) // Limit history
+            .map(msg => ({
+                role: msg.sender.id === currentUser.id ? 'user' as const : 'model' as const,
+                content: msg.text,
+            }));
         
         const responseText = await chat({
-          history: history.slice(-10), // Send last 10 messages for context
+          history,
           message: text,
         });
 
@@ -95,7 +190,16 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
           timestamp: new Date(),
         };
 
-        setMessages(prev => [...prev, geminiMessage]);
+        if (!isGeminiConversation) {
+            const geminiMessageForDb: Omit<MessageType, 'id'| 'timestamp'> & { timestamp: any } = {
+                ...geminiMessage,
+                timestamp: serverTimestamp()
+            };
+            delete (geminiMessageForDb as any).id;
+            await addDoc(collection(db, 'conversations', conversation.id, 'messages'), geminiMessageForDb);
+        } else {
+             setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), optimisticMessage, geminiMessage]);
+        }
       } catch (error) {
         console.error("Error getting response from Gemini:", error);
         const errorMessage: MessageType = {
@@ -104,25 +208,41 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
           text: "Sorry, I encountered an error. Please try again.",
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, errorMessage]);
+         setMessages(prev => [...prev, errorMessage]);
       } finally {
         setIsTyping(false);
       }
+    } else {
+        setMessages(prev => prev.filter(m => m.id !== tempMessageId));
     }
   };
+  
+  if (!currentUser || !conversation) {
+    return (
+      <div className="flex h-full items-center justify-center bg-card/75 backdrop-blur-xl rounded-2xl">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
+  const otherParticipant = conversation.type === 'direct' ? conversation.participants.find(p => p.id !== currentUser.id) : null;
 
   return (
     <div className="flex flex-col h-full bg-card/75 backdrop-blur-xl rounded-2xl overflow-hidden">
       <header className="flex items-center p-4 border-b border-border/50">
         <Avatar className="h-10 w-10">
-          <AvatarImage src={conversation.avatarUrl} alt={conversation.name} />
-          <AvatarFallback>{getInitials(conversation.name ?? 'U')}</AvatarFallback>
+          <AvatarImage src={conversation.avatarUrl || otherParticipant?.avatarUrl} alt={conversation.name || otherParticipant?.name} />
+          <AvatarFallback>{getInitials(conversation.name || otherParticipant?.name || 'U')}</AvatarFallback>
         </Avatar>
         <div className="ml-4">
-          <h2 className="font-semibold text-lg font-headline">{conversation.name}</h2>
+          <h2 className="font-semibold text-lg font-headline">{conversation.name || otherParticipant?.name}</h2>
           <p className="text-sm text-muted-foreground">
             {conversation.type === 'group' 
-              ? `${conversation.participants.length} members`
+              ? `${conversation.participantIds.length} members`
               : 'Online'}
           </p>
         </div>
@@ -157,7 +277,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
         </div>
       </ScrollArea>
 
-      <MessageInput onSendMessage={handleSendMessage} isGuest={isGuest} />
+      <MessageInput onSendMessage={handleSendMessage} isGuest={currentUser.isGuest} />
     </div>
   );
 }
