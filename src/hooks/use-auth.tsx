@@ -23,31 +23,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const params = new URLSearchParams(window.location.search);
       const isGuestMode = params.get('guest') === 'true';
 
-      if (isGuestMode && !firebaseUser) {
-        try {
-          // Attempt to sign in anonymously
-          await signInAnonymously(auth);
-          // onAuthStateChanged will be triggered again with the new user, so we wait.
-          return;
-        } catch (error) {
-          // ** WORKAROUND **
-          // If anonymous sign-in fails (e.g., API not enabled or blocked), create a local guest user
-          console.error("Anonymous sign-in failed, creating a local guest user as a fallback:", error);
-          const localGuestId = `local-guest-${Date.now()}`;
-          const localGuestUser: User = {
-            id: localGuestId,
-            name: `Guest #${localGuestId.slice(-4)}`,
-            avatarUrl: `https://placehold.co/100x100?text=G`,
-            secretId: `GUEST-${localGuestId.slice(-8).toUpperCase()}`,
-            isGuest: true,
-          };
-          setUser(localGuestUser);
-          setLoading(false);
-          return;
-        }
-      }
-
       if (firebaseUser) {
+        // This handles all authenticated users: Google, Anonymous, etc.
         const userRef = doc(db, 'users', firebaseUser.uid);
         const userSnap = await getDoc(userRef);
         
@@ -72,8 +49,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
            await setDoc(userRef, newUser);
            setUser(newUser);
         }
-      } else if (!isGuestMode) {
-        // Only set user to null if not in a guest flow
+      } else if (isGuestMode) {
+        // If there's no firebaseUser but the URL indicates a guest, try to sign in.
+        try {
+          await signInAnonymously(auth);
+          // onAuthStateChanged will be triggered again by the line above,
+          // so we don't need to do anything else here.
+        } catch (error) {
+          // ** WORKAROUND **
+          // If anonymous sign-in fails (e.g., API not enabled or blocked), create a local guest user
+          console.error("Anonymous sign-in failed, creating a local guest user as a fallback:", error);
+          const localGuestId = `local-guest-${Date.now()}`;
+          const localGuestUser: User = {
+            id: localGuestId,
+            name: `Guest #${localGuestId.slice(-4)}`,
+            avatarUrl: `https://placehold.co/100x100?text=G`,
+            secretId: `GUEST-${localGuestId.slice(-8).toUpperCase()}`,
+            isGuest: true,
+          };
+          setUser(localGuestUser);
+        }
+      } else {
+         // No firebaseUser and not a guest flow, so no one is logged in.
         setUser(null);
       }
       setLoading(false);
