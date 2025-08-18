@@ -1,4 +1,5 @@
-"use client";
+
+'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, signInAnonymously } from 'firebase/auth';
@@ -19,6 +20,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const handleGuestUser = async () => {
+      // TEMPORARILY DISABLED to prevent auth/identity-toolkit-api error
+      // This needs to be re-enabled after the API is enabled in GCP console.
+      console.error("Guest Sign-In is temporarily disabled due to a Firebase project configuration issue.");
+      setLoading(false);
+      return;
+      /*
       try {
         const userCredential = await signInAnonymously(auth);
         const firebaseUser = userCredential.user;
@@ -43,6 +50,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } finally {
         setLoading(false);
       }
+      */
     };
     
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
