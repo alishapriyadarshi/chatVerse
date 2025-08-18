@@ -1,5 +1,5 @@
 'use client';
-
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,12 @@ interface MessageProps {
 }
 
 export function Message({ message }: MessageProps) {
+  const [timestamp, setTimestamp] = useState('');
+
+  useEffect(() => {
+    setTimestamp(formatDistanceToNow(new Date(message.timestamp), { addSuffix: true }));
+  }, [message.timestamp]);
+
   const isSender = message.sender.id === CURRENT_USER.id;
   
   const getInitials = (name: string) => {
@@ -47,7 +53,7 @@ export function Message({ message }: MessageProps) {
           <p className="whitespace-pre-wrap">{message.text}</p>
         </div>
         <span className="text-xs text-muted-foreground px-1">
-          {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
+          {timestamp}
         </span>
       </div>
        {isSender && (
