@@ -2,9 +2,10 @@
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { signInWithPopup, GoogleAuthProvider, signInAnonymously } from 'firebase/auth';
+import { signInWithRedirect, GoogleAuthProvider, getRedirectResult } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { useEffect, useState } from 'react';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -25,6 +26,7 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path
       fill="#4CAF50"
       d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
+
     />
     <path
       fill="#1976D2"
@@ -37,12 +39,40 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export function AuthForm() {
   const router = useRouter();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const processRedirectResult = async () => {
+      setIsLoading(true);
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          // User successfully signed in.
+          router.push('/chat');
+        }
+      } catch (error: any) {
+         if (error.code !== 'auth/no-redirect-active') {
+            console.error("Error processing redirect result: ", error);
+            toast({
+                title: 'Sign In Failed',
+                description: 'Could not complete sign in. Please try again.',
+                variant: 'destructive',
+            });
+         }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    processRedirectResult();
+  }, [router, toast]);
+
 
   const handleGoogleSignIn = async () => {
+    setIsLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      router.push('/chat');
+      await signInWithRedirect(auth, provider);
+      // The user will be redirected, and the useEffect hook will handle the result on return.
     } catch (error) {
       console.error("Error signing in with Google: ", error);
       toast({
@@ -50,6 +80,7 @@ export function AuthForm() {
         description: 'Could not sign you in with Google. Please try again.',
         variant: 'destructive',
       });
+      setIsLoading(false);
     }
   };
 
@@ -77,11 +108,15 @@ export function AuthForm() {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <Button variant="outline" size="lg" className="bg-background/80 hover:bg-background" onClick={handleGoogleSignIn}>
-            <GoogleIcon className="mr-2" />
-            Sign In with Google
+        <Button variant="outline" size="lg" className="bg-background/80 hover:bg-background" onClick={handleGoogleSignIn} disabled={isLoading}>
+            {isLoading ? 'Signing in...' : (
+                <>
+                    <GoogleIcon className="mr-2" />
+                    Sign In with Google
+                </>
+            )}
         </Button>
-        <Button variant="secondary" size="lg" className="bg-accent/70 hover:bg-accent text-accent-foreground" onClick={handleGuestSignIn}>
+        <Button variant="secondary" size="lg" className="bg-accent/70 hover:bg-accent text-accent-foreground" onClick={handleGuestSignIn} disabled={isLoading}>
             Continue as Guest
         </Button>
       </CardContent>
