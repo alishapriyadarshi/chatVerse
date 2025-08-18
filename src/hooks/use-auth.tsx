@@ -19,38 +19,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const handleGuestUser = async () => {
-      try {
-        const userCredential = await signInAnonymously(auth);
-        const firebaseUser = userCredential.user;
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
-
-        if (!userSnap.exists()) {
-          const guestUser: User = {
-            id: firebaseUser.uid,
-            name: `Guest #${firebaseUser.uid.slice(0, 4)}`,
-            avatarUrl: `https://placehold.co/100x100?text=G`,
-            secretId: `GUEST-${firebaseUser.uid.slice(0, 8).toUpperCase()}`,
-            isGuest: true,
-          };
-          await setDoc(userRef, guestUser);
-          setUser(guestUser);
-        } else {
-          setUser(userSnap.data() as User);
-        }
-      } catch (error) {
-        console.error("Anonymous sign-in failed:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('guest') === 'true' && !firebaseUser) {
-         await handleGuestUser();
-         return;
+      const isGuestMode = params.get('guest') === 'true';
+
+      if (isGuestMode && !firebaseUser) {
+        // If guest mode is requested and no user is logged in, sign in anonymously.
+        // onAuthStateChanged will be triggered again with the new user.
+        try {
+          await signInAnonymously(auth);
+        } catch (error) {
+          console.error("Anonymous sign-in failed:", error);
+          setLoading(false);
+        }
+        // Return early, wait for the next auth state change
+        return;
       }
 
       if (firebaseUser) {
