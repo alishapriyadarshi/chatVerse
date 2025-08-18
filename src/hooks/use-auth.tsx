@@ -20,12 +20,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const handleGuestUser = async () => {
-      // TEMPORARILY DISABLED to prevent auth/identity-toolkit-api error
-      // This needs to be re-enabled after the API is enabled in GCP console.
-      console.error("Guest Sign-In is temporarily disabled due to a Firebase project configuration issue.");
-      setLoading(false);
-      return;
-      /*
       try {
         const userCredential = await signInAnonymously(auth);
         const firebaseUser = userCredential.user;
@@ -50,28 +44,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } finally {
         setLoading(false);
       }
-      */
     };
     
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       const params = new URLSearchParams(window.location.search);
       if (params.get('guest') === 'true' && !firebaseUser) {
-         handleGuestUser();
+         await handleGuestUser();
          return;
       }
 
       if (firebaseUser) {
         const userRef = doc(db, 'users', firebaseUser.uid);
         const userSnap = await getDoc(userRef);
+        
         if (userSnap.exists()) {
           setUser(userSnap.data() as User);
-        } else if (!firebaseUser.isAnonymous) {
-           const { uid, displayName, photoURL } = firebaseUser;
-           const newUser: User = {
-            id: uid,
-            name: displayName || 'User',
-            avatarUrl: photoURL || `https://placehold.co/100x100?text=${displayName?.[0] || 'U'}`,
-            secretId: `USER-${uid.slice(0, 8).toUpperCase()}`,
+        } else {
+          // This block will now correctly handle both new Google users and new anonymous users
+           const { uid, displayName, photoURL, isAnonymous } = firebaseUser;
+           const newUser: User = isAnonymous 
+           ? {
+              id: uid,
+              name: `Guest #${uid.slice(0, 4)}`,
+              avatarUrl: `https://placehold.co/100x100?text=G`,
+              secretId: `GUEST-${uid.slice(0, 8).toUpperCase()}`,
+              isGuest: true,
+            }
+           : {
+              id: uid,
+              name: displayName || 'User',
+              avatarUrl: photoURL || `https://placehold.co/100x100?text=${displayName?.[0] || 'U'}`,
+              secretId: `USER-${uid.slice(0, 8).toUpperCase()}`,
            };
            await setDoc(userRef, newUser);
            setUser(newUser);
