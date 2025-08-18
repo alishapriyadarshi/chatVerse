@@ -77,7 +77,7 @@ export function SidebarContentComponent() {
               const Icon = conv.type === 'group' ? Users : MessageSquare;
               return (
                 <SidebarMenuItem key={conv.id}>
-                  <Link href={`/chat/${conv.id}`} legacyBehavior passHref>
+                  <Link href={`/chat/${conv.id}`}>
                     <SidebarMenuButton
                       isActive={pathname === `/chat/${conv.id}`}
                       className="justify-start w-full"
@@ -113,7 +113,7 @@ export function SidebarContentComponent() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <Link href="/" legacyBehavior passHref>
+            <Link href="/">
               <SidebarMenuButton className="justify-start w-full" tooltip="Log Out">
                 <LogOut />
                 <span>Log Out</span>
