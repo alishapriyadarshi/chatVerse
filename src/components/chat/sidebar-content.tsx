@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Avatar,
   AvatarFallback,
@@ -28,28 +28,57 @@ import {
   Settings,
 } from 'lucide-react';
 import type { Conversation, User } from '@/lib/types';
-import { DUMMY_CONVERSATIONS, GUEST_USER, LOGGED_IN_USER } from '@/lib/dummy-data';
+import { DUMMY_CONVERSATIONS, GUEST_USER } from '@/lib/dummy-data';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/use-auth';
+import { auth } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
 
 export function SidebarContentComponent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { toast } = useToast();
   const isGuest = searchParams.get('guest') === 'true';
-  const [currentUser, setCurrentUser] = useState<User>(isGuest ? GUEST_USER : LOGGED_IN_USER);
+  const { user } = useAuth();
+  const [currentUser, setCurrentUser] = useState<User | null>(isGuest ? GUEST_USER : user);
 
   useEffect(() => {
-    setCurrentUser(isGuest ? GUEST_USER : LOGGED_IN_USER);
-  }, [isGuest]);
+    setCurrentUser(isGuest ? GUEST_USER : user);
+  }, [isGuest, user]);
   
   const conversations = DUMMY_CONVERSATIONS;
 
   const getInitials = (name: string) => {
+    if (!name) return '??';
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
   
   const getLinkHref = (baseHref: string) => {
     return isGuest ? `${baseHref}?guest=true` : baseHref;
+  }
+
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      router.push('/');
+    } catch (error) {
+      console.error("Error signing out: ", error);
+      toast({
+        title: 'Logout Failed',
+        description: 'Could not log you out. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  if (!currentUser) {
+    return (
+      <div className="flex flex-col h-full p-4">
+        <p>Loading user...</p>
+      </div>
+    );
   }
 
   return (
@@ -84,9 +113,10 @@ export function SidebarContentComponent() {
           <SidebarMenu>
             {conversations.map((conv) => {
               const Icon = conv.type === 'group' ? Users : MessageSquare;
+              const linkHref = getLinkHref(`/chat/${conv.id}`);
               return (
                 <SidebarMenuItem key={conv.id}>
-                  <Link href={getLinkHref(`/chat/${conv.id}`)}>
+                  <Link href={linkHref}>
                     <SidebarMenuButton
                       isActive={pathname === `/chat/${conv.id}`}
                       className="justify-start w-full"
@@ -122,12 +152,10 @@ export function SidebarContentComponent() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <Link href="/">
-              <SidebarMenuButton className="justify-start w-full" tooltip="Log Out">
-                <LogOut />
-                <span>Log Out</span>
-              </SidebarMenuButton>
-            </Link>
+            <SidebarMenuButton className="justify-start w-full" tooltip="Log Out" onClick={handleLogout}>
+              <LogOut />
+              <span>Log Out</span>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

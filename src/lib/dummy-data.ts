@@ -1,5 +1,6 @@
 import type { User, Conversation, Message } from './types';
 
+// LOGGED_IN_USER is now managed by Firebase Auth, but we keep it for dummy conversations
 export const LOGGED_IN_USER: User = {
   id: 'user-1',
   name: 'Alice',

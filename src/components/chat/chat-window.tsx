@@ -1,15 +1,16 @@
 'use client';
-import { DUMMY_CONVERSATIONS, DUMMY_MESSAGES, GUEST_USER, LOGGED_IN_USER, GEMINI_USER } from '@/lib/dummy-data';
+import { DUMMY_CONVERSATIONS, DUMMY_MESSAGES, GUEST_USER, GEMINI_USER } from '@/lib/dummy-data';
 import type { Conversation, Message as MessageType, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MoreVertical } from 'lucide-react';
+import { MoreVertical, Phone, Video } from 'lucide-react';
 import { Message } from './message';
 import { MessageInput } from './message-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { chat } from '@/ai/flows/chat-flow';
+import { useAuth } from '@/hooks/use-auth';
 
 interface ChatWindowProps {
   conversationId: string;
@@ -18,7 +19,8 @@ interface ChatWindowProps {
 export function ChatWindow({ conversationId }: ChatWindowProps) {
   const searchParams = useSearchParams();
   const isGuest = searchParams.get('guest') === 'true';
-  const currentUser = isGuest ? GUEST_USER : LOGGED_IN_USER;
+  const { user } = useAuth();
+  const currentUser = isGuest ? GUEST_USER : user;
 
   const conversation = DUMMY_CONVERSATIONS.find((c) => c.id === conversationId);
   const [messages, setMessages] = useState<MessageType[]>(DUMMY_MESSAGES[conversationId] || []);
@@ -36,6 +38,14 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
       }
     }
   }, [messages]);
+
+  if (!currentUser) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   if (!conversation) {
     return (
