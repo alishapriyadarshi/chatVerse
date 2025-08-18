@@ -39,11 +39,10 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export function AuthForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start loading to process redirect
 
   useEffect(() => {
     const processRedirectResult = async () => {
-      setIsLoading(true);
       try {
         const result = await getRedirectResult(auth);
         if (result) {
@@ -53,9 +52,10 @@ export function AuthForm() {
       } catch (error: any) {
          if (error.code !== 'auth/no-redirect-active') {
             console.error("Error processing redirect result: ", error);
-            const description = error.code === 'auth/requests-to-this-api-are-blocked' 
-              ? 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console.'
-              : 'Could not complete sign in. Please try again.';
+            let description = 'Could not complete sign in. Please try again.';
+            if (error.code === 'auth/requests-to-this-api-are-blocked.' || error.code.includes('identitytoolkit')) {
+              description = 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console.';
+            }
             toast({
                 title: 'Sign In Failed',
                 description,
@@ -77,10 +77,11 @@ export function AuthForm() {
       await signInWithRedirect(auth, provider);
       // The user will be redirected, and the useEffect hook will handle the result on return.
     } catch (error: any) {
-      console.error("Error signing in with Google: ", error);
-      const description = error.code === 'auth/requests-to-this-api-are-blocked'
-        ? 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console.'
-        : 'Could not sign you in with Google. Please try again.';
+      console.error("Error initiating sign in with Google: ", error);
+      let description = 'Could not sign you in with Google. Please try again.';
+       if (error.code === 'auth/requests-to-this-api-are-blocked.' || error.code.includes('identitytoolkit')) {
+         description = 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console.';
+       }
       toast({
         title: 'Sign In Failed',
         description,
@@ -115,7 +116,7 @@ export function AuthForm() {
       </CardHeader>
       <CardContent className="grid gap-4">
         <Button variant="outline" size="lg" className="bg-background/80 hover:bg-background" onClick={handleGoogleSignIn} disabled={isLoading}>
-            {isLoading ? 'Signing in...' : (
+            {isLoading ? 'Loading...' : (
                 <>
                     <GoogleIcon className="mr-2" />
                     Sign In with Google
