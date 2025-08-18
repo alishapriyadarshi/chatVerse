@@ -1,4 +1,3 @@
-
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
@@ -51,6 +50,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // which will then handle the user document creation.
           } catch (error) {
             console.error("Anonymous sign-in failed, creating a local guest user as a fallback:", error);
+            // This is a fallback for when the backend config is broken
             const localGuestId = `local-guest-${Date.now()}`;
             const localGuestUser: User = {
               id: localGuestId,
@@ -67,6 +67,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
       setLoading(false);
+    }, (error) => {
+        // This error callback handles failures in the initial auth state check
+        console.error("Error getting auth state:", error);
+        setUser(null);
+        setLoading(false);
     });
 
     return () => unsubscribe();

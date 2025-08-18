@@ -53,9 +53,12 @@ export function AuthForm() {
       } catch (error: any) {
          if (error.code !== 'auth/no-redirect-active') {
             console.error("Error processing redirect result: ", error);
+            const description = error.code === 'auth/requests-to-this-api-are-blocked' 
+              ? 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console.'
+              : 'Could not complete sign in. Please try again.';
             toast({
                 title: 'Sign In Failed',
-                description: 'Could not complete sign in. Please try again.',
+                description,
                 variant: 'destructive',
             });
          }
@@ -73,11 +76,14 @@ export function AuthForm() {
     try {
       await signInWithRedirect(auth, provider);
       // The user will be redirected, and the useEffect hook will handle the result on return.
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error signing in with Google: ", error);
+      const description = error.code === 'auth/requests-to-this-api-are-blocked'
+        ? 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console.'
+        : 'Could not sign you in with Google. Please try again.';
       toast({
         title: 'Sign In Failed',
-        description: 'Could not sign you in with Google. Please try again.',
+        description,
         variant: 'destructive',
       });
       setIsLoading(false);
