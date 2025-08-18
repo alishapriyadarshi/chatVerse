@@ -20,11 +20,6 @@ import {
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
   MessageSquare,
   Users,
   Search,
@@ -32,29 +27,43 @@ import {
   LogOut,
   Settings,
 } from 'lucide-react';
-import type { Conversation } from '@/lib/types';
-import { CURRENT_USER, DUMMY_CONVERSATIONS } from '@/lib/dummy-data';
+import type { Conversation, User } from '@/lib/types';
+import { DUMMY_CONVERSATIONS, GUEST_USER, LOGGED_IN_USER } from '@/lib/dummy-data';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export function SidebarContentComponent() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isGuest = searchParams.get('guest') === 'true';
+  const [currentUser, setCurrentUser] = useState<User>(isGuest ? GUEST_USER : LOGGED_IN_USER);
+
+  useEffect(() => {
+    setCurrentUser(isGuest ? GUEST_USER : LOGGED_IN_USER);
+  }, [isGuest]);
+  
   const conversations = DUMMY_CONVERSATIONS;
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
+  
+  const getLinkHref = (baseHref: string) => {
+    return isGuest ? `${baseHref}?guest=true` : baseHref;
+  }
 
   return (
     <div className="flex flex-col h-full">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={CURRENT_USER.avatarUrl} alt={CURRENT_USER.name} />
-            <AvatarFallback>{getInitials(CURRENT_USER.name)}</AvatarFallback>
+            <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
+            <AvatarFallback>{getInitials(currentUser.name)}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col truncate">
-            <span className="font-semibold truncate font-headline">{CURRENT_USER.name}</span>
+            <span className="font-semibold truncate font-headline">{currentUser.name}</span>
             <span className="text-xs text-muted-foreground truncate">
-              ID: {CURRENT_USER.secretId}
+              ID: {currentUser.secretId}
             </span>
           </div>
         </div>
@@ -77,7 +86,7 @@ export function SidebarContentComponent() {
               const Icon = conv.type === 'group' ? Users : MessageSquare;
               return (
                 <SidebarMenuItem key={conv.id}>
-                  <Link href={`/chat/${conv.id}`}>
+                  <Link href={getLinkHref(`/chat/${conv.id}`)}>
                     <SidebarMenuButton
                       isActive={pathname === `/chat/${conv.id}`}
                       className="justify-start w-full"

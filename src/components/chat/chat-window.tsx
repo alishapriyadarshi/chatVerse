@@ -1,20 +1,37 @@
 'use client';
-import { DUMMY_CONVERSATIONS, DUMMY_MESSAGES, CURRENT_USER } from '@/lib/dummy-data';
-import type { Conversation, Message as MessageType } from '@/lib/types';
+import { DUMMY_CONVERSATIONS, DUMMY_MESSAGES, GUEST_USER, LOGGED_IN_USER } from '@/lib/dummy-data';
+import type { Conversation, Message as MessageType, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Phone, Video } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import { Message } from './message';
 import { MessageInput } from './message-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
 
 interface ChatWindowProps {
   conversationId: string;
 }
 
 export function ChatWindow({ conversationId }: ChatWindowProps) {
+  const searchParams = useSearchParams();
+  const isGuest = searchParams.get('guest') === 'true';
+  const currentUser = isGuest ? GUEST_USER : LOGGED_IN_USER;
+
   const conversation = DUMMY_CONVERSATIONS.find((c) => c.id === conversationId);
-  const messages = DUMMY_MESSAGES[conversationId] || [];
+  const [messages, setMessages] = useState<MessageType[]>(DUMMY_MESSAGES[conversationId] || []);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTo({
+        top: scrollAreaRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, [messages]);
 
   if (!conversation) {
     return (
@@ -28,7 +45,16 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
-  const isGuest = CURRENT_USER.isGuest;
+  const handleSendMessage = (text: string, imageUrl?: string) => {
+    const newMessage: MessageType = {
+      id: `msg-${Date.now()}`,
+      sender: currentUser,
+      text,
+      timestamp: new Date(),
+      imageUrl,
+    };
+    setMessages(prevMessages => [...prevMessages, newMessage]);
+  };
 
   return (
     <div className="flex flex-col h-full bg-card/75 backdrop-blur-xl rounded-2xl overflow-hidden">
@@ -46,21 +72,19 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" size="icon"><Phone /></Button>
-          <Button variant="ghost" size="icon"><Video /></Button>
           <Button variant="ghost" size="icon"><MoreVertical /></Button>
         </div>
       </header>
       
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1" ref={scrollAreaRef}>
         <div className="p-6 space-y-6">
           {messages.map((msg) => (
-            <Message key={msg.id} message={msg} />
+            <Message key={msg.id} message={msg} currentUser={currentUser} />
           ))}
         </div>
       </ScrollArea>
 
-      <MessageInput isGuest={isGuest} />
+      <MessageInput onSendMessage={handleSendMessage} isGuest={isGuest} />
     </div>
   );
 }

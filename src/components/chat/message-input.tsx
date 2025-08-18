@@ -1,16 +1,21 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ImagePlus, SendHorizonal } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { CURRENT_USER } from '@/lib/dummy-data';
 
-export function MessageInput({ isGuest }: { isGuest?: boolean }) {
+interface MessageInputProps {
+  onSendMessage: (text: string, imageUrl?: string) => void;
+  isGuest?: boolean;
+}
+
+export function MessageInput({ onSendMessage, isGuest }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageUpload = () => {
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (isGuest) {
       toast({
         title: 'Feature Locked',
@@ -19,14 +24,20 @@ export function MessageInput({ isGuest }: { isGuest?: boolean }) {
       });
       return;
     }
-    // Trigger file input click
-    document.getElementById('image-upload')?.click();
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onSendMessage('', reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
-    console.log('Sending message:', message);
+    onSendMessage(message);
     setMessage('');
   };
 
@@ -35,13 +46,19 @@ export function MessageInput({ isGuest }: { isGuest?: boolean }) {
       onSubmit={handleSend}
       className="p-4 border-t border-border/50 bg-background/50 flex items-start gap-4"
     >
-      <input type="file" id="image-upload" className="hidden" accept="image/*" />
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        className="hidden" 
+        accept="image/*" 
+        onChange={handleImageUpload}
+      />
       <Button
         type="button"
         variant="ghost"
         size="icon"
         className="shrink-0"
-        onClick={handleImageUpload}
+        onClick={() => fileInputRef.current?.click()}
       >
         <ImagePlus className="h-6 w-6 text-muted-foreground" />
       </Button>

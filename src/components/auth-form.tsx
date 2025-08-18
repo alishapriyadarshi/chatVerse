@@ -50,7 +50,7 @@ export function AuthForm() {
           </Link>
         </Button>
         <Button asChild variant="secondary" size="lg" className="bg-accent/70 hover:bg-accent text-accent-foreground">
-          <Link href="/chat">
+          <Link href="/chat?guest=true">
             Continue as Guest
           </Link>
         </Button>

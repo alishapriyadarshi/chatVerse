@@ -5,20 +5,27 @@ import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Message as MessageType, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CURRENT_USER } from '@/lib/dummy-data';
 
 interface MessageProps {
   message: MessageType;
+  currentUser: User;
 }
 
-export function Message({ message }: MessageProps) {
+export function Message({ message, currentUser }: MessageProps) {
   const [timestamp, setTimestamp] = useState('');
 
   useEffect(() => {
-    setTimestamp(formatDistanceToNow(new Date(message.timestamp), { addSuffix: true }));
-  }, [message.timestamp]);
+    const updateTimestamp = () => {
+      setTimestamp(formatDistanceToNow(new Date(message.timestamp), { addSuffix: true }));
+    };
 
-  const isSender = message.sender.id === CURRENT_USER.id;
+    updateTimestamp();
+    const intervalId = setInterval(updateTimestamp, 60000); 
+
+    return () => clearInterval(intervalId);
+  }, [message.timestamp]);
+  
+  const isSender = message.sender.id === currentUser.id;
   
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
