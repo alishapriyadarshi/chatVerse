@@ -20,9 +20,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      const params = new URLSearchParams(window.location.search);
-      const isGuestMode = params.get('guest') === 'true';
-
       if (firebaseUser) {
         // User is signed in (Google or successfully as Anonymous)
         const userRef = doc(db, 'users', firebaseUser.uid);
@@ -35,35 +32,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const { uid, displayName, photoURL, isAnonymous } = firebaseUser;
            const newUser: User = {
               id: uid,
-              name: isAnonymous ? `Guest #${uid.slice(0, 4)}` : displayName || 'User',
-              avatarUrl: isAnonymous ? `https://placehold.co/100x100?text=G` : photoURL || `https://placehold.co/100x100?text=${displayName?.[0] || 'U'}`,
+              name: isAnonymous ? `Guest #${uid.slice(0, 4)}` : (displayName || 'User'),
+              avatarUrl: isAnonymous ? `https://placehold.co/100x100?text=G` : (photoURL || `https://placehold.co/100x100?text=${(displayName?.charAt(0) || 'U').toUpperCase()}`),
               secretId: isAnonymous ? `GUEST-${uid.slice(0, 8).toUpperCase()}`: `USER-${uid.slice(0, 8).toUpperCase()}`,
               isGuest: isAnonymous,
             };
            await setDoc(userRef, newUser);
            setUser(newUser);
         }
-      } else if (isGuestMode) {
-        // No user signed in, and they requested guest mode.
-        try {
-          await signInAnonymously(auth);
-          // onAuthStateChanged will be re-triggered by the line above,
-          // which will then handle the user document creation.
-        } catch (error) {
-          console.error("Anonymous sign-in failed, creating a local guest user as a fallback:", error);
-          const localGuestId = `local-guest-${Date.now()}`;
-          const localGuestUser: User = {
-            id: localGuestId,
-            name: `Guest #${localGuestId.slice(-4)}`,
-            avatarUrl: `https://placehold.co/100x100?text=G`,
-            secretId: `GUEST-${localGuestId.slice(-8).toUpperCase()}`,
-            isGuest: true,
-          };
-          setUser(localGuestUser);
-        }
       } else {
-         // No firebaseUser and not a guest flow, so no one is logged in.
-        setUser(null);
+        const params = new URLSearchParams(window.location.search);
+        const isGuestMode = params.get('guest') === 'true';
+        
+        if (isGuestMode) {
+          try {
+            await signInAnonymously(auth);
+            // onAuthStateChanged will be re-triggered by the line above,
+            // which will then handle the user document creation.
+          } catch (error) {
+            console.error("Anonymous sign-in failed, creating a local guest user as a fallback:", error);
+            const localGuestId = `local-guest-${Date.now()}`;
+            const localGuestUser: User = {
+              id: localGuestId,
+              name: `Guest #${localGuestId.slice(-4)}`,
+              avatarUrl: `https://placehold.co/100x100?text=G`,
+              secretId: `GUEST-${localGuestId.slice(-8).toUpperCase()}`,
+              isGuest: true,
+            };
+            setUser(localGuestUser);
+          }
+        } else {
+          // No firebaseUser and not a guest flow, so no one is logged in.
+          setUser(null);
+        }
       }
       setLoading(false);
     });
