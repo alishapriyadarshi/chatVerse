@@ -15,12 +15,20 @@ export const GUEST_USER: User = {
   isGuest: true,
 };
 
+export const GEMINI_USER: User = {
+    id: 'user-gemini',
+    name: 'Gemini',
+    avatarUrl: 'https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d6ebb19945ab56832508.svg',
+    secretId: 'GEMINI-BOT-SECRET'
+};
+
 export const DUMMY_USERS: User[] = [
   LOGGED_IN_USER,
   { id: 'user-2', name: 'Bob', avatarUrl: 'https://placehold.co/100x100' },
   { id: 'user-3', name: 'Charlie', avatarUrl: 'https://placehold.co/100x100' },
   { id: 'user-4', name: 'Diana', avatarUrl: 'https://placehold.co/100x100' },
   GUEST_USER,
+  GEMINI_USER
 ];
 
 
@@ -52,9 +60,21 @@ export const DUMMY_MESSAGES: { [conversationId: string]: Message[] } = {
   'conv-3': [
     { id: 'msg-3-1', sender: DUMMY_USERS[3], text: 'Lunch tomorrow?', timestamp: twoMinutesAgo },
   ],
+  'conv-gemini': [
+    { id: 'msg-gem-1', sender: GEMINI_USER, text: 'Hello! How can I help you today?', timestamp: new Date() },
+  ],
 };
 
 export const DUMMY_CONVERSATIONS: Conversation[] = [
+    {
+    id: 'conv-gemini',
+    type: 'direct',
+    participants: [LOGGED_IN_USER, GUEST_USER, GEMINI_USER],
+    name: GEMINI_USER.name,
+    avatarUrl: GEMINI_USER.avatarUrl,
+    lastMessage: DUMMY_MESSAGES['conv-gemini'][0],
+    unreadCount: 1,
+  },
   {
     id: 'conv-1',
     type: 'direct',
