@@ -6,6 +6,7 @@ import { signInWithRedirect, GoogleAuthProvider, getRedirectResult } from 'fireb
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/use-auth';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -26,7 +27,6 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path
       fill="#4CAF50"
       d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
-
     />
     <path
       fill="#1976D2"
@@ -39,16 +39,22 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export function AuthForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true); // Start loading to process redirect
+  const { loading: authLoading } = useAuth();
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   useEffect(() => {
+    // This effect handles processing the redirect result and potential errors.
+    // The actual navigation is now handled by the useAuth hook.
     const processRedirectResult = async () => {
+      // Only process redirect if we are not in the middle of a sign-in initiated by this component
+      if (isSigningIn) return;
+      
       try {
+        // Checking for redirect result to clear the state, but not navigating from here
         const result = await getRedirectResult(auth);
-        if (result) {
-          // User successfully signed in.
-          router.push('/chat');
-        }
+        // If result is null, it means it's a fresh page load, not a redirect return.
+        // If result has a value, it means a sign-in was successful, and useAuth will handle navigation.
+        
       } catch (error: any) {
          if (error.code !== 'auth/no-redirect-active') {
             console.error("Error processing redirect result: ", error);
@@ -65,19 +71,19 @@ export function AuthForm() {
             });
          }
       } finally {
-        setIsLoading(false);
+        setIsSigningIn(false);
       }
     };
     processRedirectResult();
-  }, [router, toast]);
+  }, [isSigningIn, toast]);
 
 
   const handleGoogleSignIn = async () => {
-    setIsLoading(true);
+    setIsSigningIn(true);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithRedirect(auth, provider);
-      // The user will be redirected, and the useEffect hook will handle the result on return.
+      // The user will be redirected. The useAuth hook will handle the result on return.
     } catch (error: any) {
       console.error("Error initiating sign in with Google: ", error);
       let description = 'Could not sign you in with Google. Please try again.';
@@ -91,12 +97,15 @@ export function AuthForm() {
         description,
         variant: 'destructive',
       });
-      setIsLoading(false);
+      setIsSigningIn(false);
     }
   };
 
   const handleGuestSignIn = async () => {
+    setIsSigningIn(true);
     try {
+      // We just navigate. The useAuth hook will detect the 'guest=true' param
+      // and handle the anonymous sign-in process.
       router.push('/chat?guest=true');
     } catch (error) {
        console.error("Error signing in as Guest: ", error);
@@ -105,8 +114,11 @@ export function AuthForm() {
         description: 'Could not sign you in as Guest. Please try again.',
         variant: 'destructive',
       });
+       setIsSigningIn(false);
     }
   };
+
+  const isLoading = authLoading || isSigningIn;
   
   return (
     <Card className="w-full max-w-sm frosted-glass bg-card/80 border-border/30 shadow-2xl">

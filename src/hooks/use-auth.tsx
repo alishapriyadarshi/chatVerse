@@ -5,6 +5,7 @@ import { onAuthStateChanged, User as FirebaseUser, signInAnonymously } from 'fir
 import { auth, db } from '@/lib/firebase';
 import type { User } from '@/lib/types';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { useRouter, usePathname } from 'next/navigation';
 
 interface AuthContextType {
   user: User | null;
@@ -16,6 +17,8 @@ const AuthContext = createContext<AuthContextType>({ user: null, loading: true }
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
@@ -25,8 +28,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const userRef = doc(db, 'users', firebaseUser.uid);
         const userSnap = await getDoc(userRef);
         
+        let appUser: User;
         if (userSnap.exists()) {
-          setUser(userSnap.data() as User);
+          appUser = userSnap.data() as User;
+          setUser(appUser);
         } else {
           // New user, create the user document in Firestore
           const { uid, displayName, photoURL, isAnonymous } = firebaseUser;
@@ -38,8 +43,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               isGuest: isAnonymous,
             };
            await setDoc(userRef, newUser);
-           setUser(newUser);
+           appUser = newUser;
+           setUser(appUser);
         }
+
+        // Navigate to chat if user is authenticated and on the home page
+        if (pathname === '/') {
+            router.push(appUser.isGuest ? '/chat?guest=true' : '/chat');
+        }
+
       } else {
         const params = new URLSearchParams(window.location.search);
         const isGuestMode = params.get('guest') === 'true';
@@ -48,7 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           try {
             await signInAnonymously(auth);
             // onAuthStateChanged will be re-triggered by the line above,
-            // which will then handle the user document creation. We don't set loading false here.
+            // which will then handle the user document creation and navigation.
             return;
           } catch (error) {
             console.error("Anonymous sign-in failed, creating a local guest user as a fallback:", error);
@@ -62,6 +74,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               isGuest: true,
             };
             setUser(localGuestUser);
+            if (pathname === '/') {
+                router.push('/chat?guest=true');
+            }
           }
         } else {
           // No firebaseUser and not in a guest flow, so no one is logged in.
@@ -77,7 +92,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router, pathname]);
 
   return (
     <AuthContext.Provider value={{ user, loading }}>
