@@ -1,3 +1,4 @@
+
 'use client';
 import { GEMINI_USER } from '@/lib/dummy-data';
 import type { Conversation, Message as MessageType, User } from '@/lib/types';
@@ -174,12 +175,20 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
       }
     }
     
-    const newMessageData = {
+    const newMessageData: {
+      senderId: string;
+      text: string;
+      timestamp: any;
+      imageUrl?: string;
+    } = {
       senderId: currentUser.id,
       text,
-      imageUrl,
       timestamp: serverTimestamp(),
     };
+
+    if (imageUrl) {
+      newMessageData.imageUrl = imageUrl;
+    }
 
     const isGeminiConversation = conversation.id === 'conv-gemini';
 
