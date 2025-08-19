@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { signInWithRedirect, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -48,29 +48,37 @@ export function AuthForm() {
     setIsGoogleSignInProgress(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithRedirect(auth, provider);
+      // The onAuthStateChanged listener in useAuth will handle the user creation and navigation.
+      await signInWithPopup(auth, provider);
     } catch (error: any) {
-      console.error("Error initiating sign in with Google: ", error);
-       let description = 'Could not sign you in with Google. Please try again.';
-       if (error.code === 'auth/unauthorized-domain') {
-          description = `This domain is not authorized for sign-in. Please add it to the list of authorized domains in your Firebase console for project chatverse-v8eax.`;
-       } else if (error.code?.includes('requests-to-this-api') || error.code?.includes('identitytoolkit')) {
-         description = 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console for project chatverse-v8eax.';
-       }
+      console.error("Error during sign in with Google Popup: ", error);
+      let description = 'Could not sign you in with Google. Please try again.';
+      if (error.code === 'auth/popup-closed-by-user') {
+        description = 'Sign-in was cancelled. Please try again.';
+      } else if (error.code === 'auth/unauthorized-domain') {
+         description = `This domain is not authorized for sign-in. Please add it to the list of authorized domains in your Firebase console for project chatverse-v8eax.`;
+      } else if (error.code?.includes('requests-to-this-api') || error.code?.includes('identitytoolkit')) {
+        description = 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console for project chatverse-v8eax.';
+      }
       toast({
         title: 'Sign In Failed',
         description,
         variant: 'destructive',
       });
-      setIsGoogleSignInProgress(false);
+    } finally {
+        // isAuthLoading from useAuth will become false when onAuthStateChanged is complete.
+        // We set our local progress to false here.
+        setIsGoogleSignInProgress(false);
     }
   };
 
   const handleGuestSignIn = () => {
     setIsGuestSignInProgress(true);
+    // The useAuth hook will see this and trigger anonymous sign-in.
     router.push('/?guest=true');
   };
 
+  // Combine local progress with global auth loading state for a responsive UI
   const isGoogleProcessing = isAuthLoading || isGoogleSignInProgress;
   const isGuestProcessing = isAuthLoading || isGuestSignInProgress;
   
