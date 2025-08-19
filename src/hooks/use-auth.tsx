@@ -24,52 +24,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // This effect should only run once on mount to handle the initial auth state.
-    const handleInitialAuth = async () => {
-      setLoading(true);
-      const isGuestMode = searchParams.get('guest') === 'true';
-
-      try {
-        // Handle guest login first if requested
-        if (isGuestMode && !auth.currentUser) {
-          await signInAnonymously(auth);
-          // The onAuthStateChanged listener below will handle the rest.
-          return;
-        }
-
-        // Handle redirect result from Google Sign-In
-        const result = await getRedirectResult(auth);
-        if (result) {
-          // This block runs when the user is redirected back from Google.
-          // onAuthStateChanged will handle user creation and state setting.
-        } else if (auth.currentUser) {
-          // User is already signed in (e.g., from a previous session).
-          // onAuthStateChanged will handle this.
-        }
-        
-      } catch (error: any) {
-        console.error("Auth initialization error:", error);
-        let description = 'Could not complete sign in. Please try again.';
-        if (error.code === 'auth/unauthorized-domain') {
-          description = `This domain is not authorized for sign-in. Please add it to the list of authorized domains in your Firebase console for project chatverse-v8eax.`;
-        } else if (error.code?.includes('requests-to-this-api') || error.code?.includes('identitytoolkit')) {
-          description = 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console for project chatverse-v8eax.';
-        }
-        toast({ title: 'Sign In Failed', description, variant: 'destructive' });
-      } finally {
-        // The onAuthStateChanged listener will eventually set loading to false.
-        // We set a timeout here to prevent getting stuck in a loading state if all else fails.
-        setTimeout(() => {
-          if (loading) {
-            setLoading(false)
-          }
-        }, 3000);
-      }
-    };
-    
-    handleInitialAuth();
-
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+    const handleAuthentication = async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         const userRef = doc(db, 'users', firebaseUser.uid);
         const userSnap = await getDoc(userRef);
@@ -92,17 +47,56 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         setUser(appUser);
         
+        // Redirect if on the login page
         if (pathname === '/') {
-          router.replace(appUser.isGuest ? '/chat?guest=true' : '/chat');
+          const newPath = appUser.isGuest ? '/chat?guest=true' : '/chat';
+          router.replace(newPath);
         }
       } else {
         setUser(null);
       }
       setLoading(false);
-    });
+    };
+
+    const unsubscribe = onAuthStateChanged(auth, handleAuthentication);
+
+    // Handle initial state and redirects
+    const processAuthResult = async () => {
+      setLoading(true);
+      try {
+        const result = await getRedirectResult(auth);
+        // If there's a result, onAuthStateChanged will fire and handle it.
+        // If not, we check for guest mode or existing user.
+        if (!result) {
+          const isGuestMode = searchParams.get('guest') === 'true';
+          if (isGuestMode && !auth.currentUser) {
+            await signInAnonymously(auth);
+            // onAuthStateChanged will handle the rest.
+          } else if (auth.currentUser) {
+            // Manually trigger handler for already logged-in user if onAuthStateChanged hasn't fired yet
+            await handleAuthentication(auth.currentUser);
+          } else {
+            setLoading(false);
+          }
+        }
+      } catch (error: any) {
+        console.error("Auth initialization error:", error);
+        let description = 'Could not complete sign in. Please try again.';
+        if (error.code === 'auth/unauthorized-domain') {
+           description = `This domain is not authorized for sign-in. Please add it to the list of authorized domains in your Firebase console for project chatverse-v8eax.`;
+        } else if (error.code?.includes('requests-to-this-api') || error.code?.includes('identitytoolkit')) {
+          description = 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console for project chatverse-v8eax.';
+        }
+        toast({ title: 'Sign In Failed', description, variant: 'destructive' });
+        setLoading(false);
+        router.replace('/'); // Go back to login on error
+      }
+    };
+
+    processAuthResult();
 
     return () => unsubscribe();
-  }, []); // Run only once
+  }, [router, pathname, searchParams, toast]); // Dependencies for the effect
 
   return (
     <AuthContext.Provider value={{ user, loading }}>

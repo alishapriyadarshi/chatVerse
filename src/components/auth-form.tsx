@@ -49,7 +49,7 @@ export function AuthForm() {
       let description = 'Could not sign you in with Google. Please try again.';
        if (error.code === 'auth/unauthorized-domain') {
           description = `This domain is not authorized for sign-in. Please add it to the list of authorized domains in your Firebase console for project chatverse-v8eax.`;
-       } else if (error.code === 'auth/requests-to-this-api-are-blocked.' || error.code.includes('identitytoolkit')) {
+       } else if (error.code === 'auth/requests-to-this-api-are-blocked.' || error.code?.includes('identitytoolkit')) {
          description = 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console for project chatverse-v8eax.';
        }
       toast({
@@ -65,7 +65,7 @@ export function AuthForm() {
     setIsSigningIn(true);
     // We just navigate. The useAuth hook will detect the 'guest=true' param
     // and handle the anonymous sign-in process.
-    router.push('/chat?guest=true');
+    router.push('/?guest=true');
   };
 
   const isLoading = authLoading || isSigningIn;
