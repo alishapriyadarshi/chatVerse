@@ -63,13 +63,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Handle initial state and redirects
     const processAuthResult = async () => {
-      setLoading(true);
+      const isGuestMode = searchParams.get('guest') === 'true';
+      const isLoginPath = pathname === '/';
+
+      // Set loading to true if an auth action is in progress
+      if ((isLoginPath && isGuestMode) || (isLoginPath && !auth.currentUser)) {
+        setLoading(true);
+      }
+      
       try {
         const result = await getRedirectResult(auth);
         // If there's a result, onAuthStateChanged will fire and handle it.
         // If not, we check for guest mode or existing user.
         if (!result) {
-          const isGuestMode = searchParams.get('guest') === 'true';
           if (isGuestMode && !auth.currentUser) {
             try {
               await signInAnonymously(auth);
@@ -88,7 +94,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                setLoading(false);
             }
           } else if (auth.currentUser) {
-            // Manually trigger handler for already logged-in user if onAuthStateChanged hasn't fired yet
+            // Manually trigger handler for already logged-in user
             await handleAuthentication(auth.currentUser);
           } else {
             setLoading(false);
@@ -115,7 +121,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{ user, loading }}>
-      {!loading && children}
+      {(!loading || pathname !== '/') && children}
     </AuthContext.Provider>
   );
 };

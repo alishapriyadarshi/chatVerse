@@ -1,5 +1,4 @@
 'use client';
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,8 +39,6 @@ export function AuthForm() {
   const router = useRouter();
   const { toast } = useToast();
   const { loading } = useAuth();
-  const [isGuestLoginInProgress, setIsGuestLoginInProgress] = useState(false);
-
 
   const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider();
@@ -65,13 +62,10 @@ export function AuthForm() {
   };
 
   const handleGuestSignIn = async () => {
-    setIsGuestLoginInProgress(true);
     // We just navigate. The useAuth hook will detect the 'guest=true' param
-    // and handle the anonymous sign-in process.
+    // and handle the anonymous sign-in process, including setting the global loading state.
     router.push('/?guest=true');
   };
-  
-  const isProcessing = loading || isGuestLoginInProgress;
   
   return (
     <Card className="w-full max-w-sm frosted-glass bg-card/80 border-border/30 shadow-2xl">
@@ -84,7 +78,7 @@ export function AuthForm() {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <Button variant="outline" size="lg" className="bg-background/80 hover:bg-background" onClick={handleGoogleSignIn} disabled={isProcessing}>
+        <Button variant="outline" size="lg" className="bg-background/80 hover:bg-background" onClick={handleGoogleSignIn} disabled={loading}>
             {loading ? 'Processing...' : (
                 <>
                     <GoogleIcon className="mr-2" />
@@ -92,8 +86,8 @@ export function AuthForm() {
                 </>
             )}
         </Button>
-        <Button variant="secondary" size="lg" className="bg-accent/70 hover:bg-accent text-accent-foreground" onClick={handleGuestSignIn} disabled={isProcessing}>
-           {isProcessing ? 'Processing...' : 'Continue as Guest'}
+        <Button variant="secondary" size="lg" className="bg-accent/70 hover:bg-accent text-accent-foreground" onClick={handleGuestSignIn} disabled={loading}>
+           {loading ? 'Processing...' : 'Continue as Guest'}
         </Button>
       </CardContent>
     </Card>
