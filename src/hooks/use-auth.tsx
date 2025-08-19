@@ -63,13 +63,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Handle initial state and redirects
     const processAuthResult = async () => {
+      setLoading(true);
       const isGuestMode = searchParams.get('guest') === 'true';
-      const isLoginPath = pathname === '/';
-
-      // Set loading to true if an auth action is in progress
-      if ((isLoginPath && isGuestMode) || (isLoginPath && !auth.currentUser)) {
-        setLoading(true);
-      }
       
       try {
         const result = await getRedirectResult(auth);
@@ -121,7 +116,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{ user, loading }}>
-      {(!loading || pathname !== '/') && children}
+      {children}
     </AuthContext.Provider>
   );
 };

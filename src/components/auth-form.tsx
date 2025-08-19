@@ -6,6 +6,7 @@ import { signInWithRedirect, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import { useState } from 'react';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg
@@ -39,11 +40,12 @@ export function AuthForm() {
   const router = useRouter();
   const { toast } = useToast();
   const { loading } = useAuth();
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   const handleGoogleSignIn = async () => {
+    setIsSigningIn(true);
     const provider = new GoogleAuthProvider();
     try {
-      // The user will be redirected. The useAuth hook will handle the result on return.
       await signInWithRedirect(auth, provider);
     } catch (error: any) {
       console.error("Error initiating sign in with Google: ", error);
@@ -58,14 +60,16 @@ export function AuthForm() {
         description,
         variant: 'destructive',
       });
+      setIsSigningIn(false);
     }
   };
 
-  const handleGuestSignIn = async () => {
-    // We just navigate. The useAuth hook will detect the 'guest=true' param
-    // and handle the anonymous sign-in process, including setting the global loading state.
+  const handleGuestSignIn = () => {
+    setIsSigningIn(true);
     router.push('/?guest=true');
   };
+
+  const isProcessing = loading || isSigningIn;
   
   return (
     <Card className="w-full max-w-sm frosted-glass bg-card/80 border-border/30 shadow-2xl">
@@ -78,16 +82,16 @@ export function AuthForm() {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <Button variant="outline" size="lg" className="bg-background/80 hover:bg-background" onClick={handleGoogleSignIn} disabled={loading}>
-            {loading ? 'Processing...' : (
+        <Button variant="outline" size="lg" className="bg-background/80 hover:bg-background" onClick={handleGoogleSignIn} disabled={isProcessing}>
+            {isProcessing ? 'Processing...' : (
                 <>
                     <GoogleIcon className="mr-2" />
                     Sign In with Google
                 </>
             )}
         </Button>
-        <Button variant="secondary" size="lg" className="bg-accent/70 hover:bg-accent text-accent-foreground" onClick={handleGuestSignIn} disabled={loading}>
-           {loading ? 'Processing...' : 'Continue as Guest'}
+        <Button variant="secondary" size="lg" className="bg-accent/70 hover:bg-accent text-accent-foreground" onClick={handleGuestSignIn} disabled={isProcessing}>
+           {isProcessing ? 'Processing...' : 'Continue as Guest'}
         </Button>
       </CardContent>
     </Card>
