@@ -91,7 +91,8 @@ export function SidebarContentComponent() {
   const handleLogout = async () => {
     try {
       await auth.signOut();
-      router.push('/');
+      // Force a hard refresh to clear all state
+      window.location.assign('/');
     } catch (error) {
       console.error("Error signing out: ", error);
       toast({
@@ -184,7 +185,7 @@ export function SidebarContentComponent() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton className="justify-start w-full" tooltip="Log Out" onClick={handleLogout} disabled={isGuest}>
+            <SidebarMenuButton className="justify-start w-full" tooltip="Log Out" onClick={handleLogout}>
               <LogOut />
               <span>Log Out</span>
             </SidebarMenuButton>
