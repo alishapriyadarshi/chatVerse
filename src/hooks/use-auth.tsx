@@ -1,3 +1,4 @@
+
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
@@ -70,8 +71,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!result) {
           const isGuestMode = searchParams.get('guest') === 'true';
           if (isGuestMode && !auth.currentUser) {
-            await signInAnonymously(auth);
-            // onAuthStateChanged will handle the rest.
+            try {
+              await signInAnonymously(auth);
+              // onAuthStateChanged will handle the rest.
+            } catch (error: any) {
+              if (error.code === 'auth/admin-restricted-operation') {
+                toast({
+                  title: 'Guest Mode Disabled',
+                  description: 'Anonymous sign-in is not enabled for this project. Please enable it in the Firebase console.',
+                  variant: 'destructive',
+                });
+                 router.replace('/'); // Go back to login
+              } else {
+                 toast({ title: 'Guest Sign In Failed', description: 'Could not sign you in as a guest. Please try again.', variant: 'destructive' });
+              }
+               setLoading(false);
+            }
           } else if (auth.currentUser) {
             // Manually trigger handler for already logged-in user if onAuthStateChanged hasn't fired yet
             await handleAuthentication(auth.currentUser);
