@@ -5,14 +5,14 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarGroup, SidebarGroupLabel, SidebarSeparator } from '@/components/ui/sidebar';
-import { LogOut, Settings, MessageSquare, Users, PlusCircle } from 'lucide-react';
+import { LogOut, Settings, PlusCircle } from 'lucide-react';
 import type { Conversation, User } from '@/lib/types';
 import { GEMINI_USER } from '@/lib/dummy-data';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { auth, db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { collection, query, where, onSnapshot, addDoc, getDocs, serverTimestamp, doc, getDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, getDocs, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { formatDistanceToNow } from 'date-fns';
 
 export function SidebarContentComponent() {
   const pathname = usePathname();
@@ -40,8 +39,8 @@ export function SidebarContentComponent() {
     );
 
     const unsubConversations = onSnapshot(convosQuery, async (snapshot) => {
-      const convosPromises = snapshot.docs.map(async (doc) => {
-        const convData = { id: doc.id, ...doc.data() } as Conversation;
+      const convosPromises = snapshot.docs.map(async (convDoc) => {
+        const convData = { id: convDoc.id, ...convDoc.data() } as Conversation;
         
         if (convData.type === 'direct') {
           const otherParticipantId = convData.participantIds.find(id => id !== currentUser.id);
