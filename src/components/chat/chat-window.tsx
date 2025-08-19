@@ -11,7 +11,7 @@ import { useEffect, useState, useRef } from 'react';
 import { chat } from '@/ai/flows/chat-flow';
 import { useAuth } from '@/hooks/use-auth';
 import { db, storage } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, getDoc, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 
@@ -195,7 +195,15 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
 
     // For non-gemini conversations, add the message to firestore immediately
     if (!isGeminiConversation) {
-        addDoc(collection(db, 'conversations', conversation.id, 'messages'), newMessageData);
+        await addDoc(collection(db, 'conversations', conversation.id, 'messages'), newMessageData);
+        await updateDoc(doc(db, 'conversations', conversation.id), {
+          lastMessage: {
+            text: text,
+            senderId: currentUser.id,
+            timestamp: serverTimestamp(),
+          },
+          unreadCount: 0 // Reset unread count on new message
+        });
     } else {
         // For gemini, we add it optimistically
         setMessages(prev => [...prev, optimisticMessage]);
@@ -235,7 +243,15 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
                 text: responseText,
                 timestamp: serverTimestamp()
             };
-            addDoc(collection(db, 'conversations', conversation.id, 'messages'), geminiMessageForDb);
+            await addDoc(collection(db, 'conversations', conversation.id, 'messages'), geminiMessageForDb);
+            await updateDoc(doc(db, 'conversations', conversation.id), {
+              lastMessage: {
+                text: responseText,
+                senderId: GEMINI_USER.id,
+                timestamp: serverTimestamp(),
+              }
+            });
+
         } else {
              setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), optimisticMessage, geminiMessage]);
         }

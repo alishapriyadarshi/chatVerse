@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { auth, db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { collection, query, where, onSnapshot, addDoc, getDocs, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, getDocs, serverTimestamp, doc, getDoc, orderBy } from 'firebase/firestore';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { formatDistanceToNow } from 'date-fns';
 
 export function SidebarContentComponent() {
   const pathname = usePathname();
@@ -32,21 +33,30 @@ export function SidebarContentComponent() {
   useEffect(() => {
     if (!currentUser) return;
 
-    // Listen for conversations
     const convosQuery = query(
       collection(db, 'conversations'),
-      where('participantIds', 'array-contains', currentUser.id)
+      where('participantIds', 'array-contains', currentUser.id),
+      orderBy('lastMessage.timestamp', 'desc')
     );
+
     const unsubConversations = onSnapshot(convosQuery, async (snapshot) => {
-      const convos: Conversation[] = [];
-      for (const doc of snapshot.docs) {
+      const convosPromises = snapshot.docs.map(async (doc) => {
         const convData = { id: doc.id, ...doc.data() } as Conversation;
-        // Fetch full participant details
-        const participantPromises = convData.participantIds.map(id => getDoc(db, 'users', id));
-        const participantDocs = await Promise.all(participantPromises);
-        convData.participants = participantDocs.map(pDoc => pDoc.data() as User).filter(Boolean);
-        convos.push(convData);
-      }
+        
+        if (convData.type === 'direct') {
+          const otherParticipantId = convData.participantIds.find(id => id !== currentUser.id);
+          if (otherParticipantId) {
+            const userSnap = await getDoc(db, 'users', otherParticipantId);
+            if (userSnap.exists()) {
+              const otherUser = userSnap.data() as User;
+              convData.name = otherUser.name;
+              convData.avatarUrl = otherUser.avatarUrl;
+            }
+          }
+        }
+        return convData;
+      });
+      const convos = await Promise.all(convosPromises);
       setConversations(convos);
     });
 
@@ -90,12 +100,20 @@ export function SidebarContentComponent() {
     if (!currentUser) return;
 
     // Check if a conversation already exists
-    const existingConvo = conversations.find(c => 
-        c.type === 'direct' && 
-        c.participantIds.length === 2 &&
-        c.participantIds.includes(currentUser.id) &&
-        c.participantIds.includes(otherUser.id)
+    const existingConvoQuery = query(
+        collection(db, 'conversations'),
+        where('participantIds', 'array-contains', currentUser.id)
     );
+
+    const querySnapshot = await getDocs(existingConvoQuery);
+    const existingConvo = querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Conversation))
+        .find(c =>
+            c.type === 'direct' &&
+            c.participantIds.length === 2 &&
+            c.participantIds.includes(otherUser.id)
+        );
+
 
     if (existingConvo) {
       router.push(`/chat/${existingConvo.id}`);
@@ -142,7 +160,7 @@ export function SidebarContentComponent() {
         id: 'conv-gemini',
         name: GEMINI_USER.name,
         avatarUrl: GEMINI_USER.avatarUrl,
-        lastMessage: { text: 'Ask me anything...' },
+        lastMessage: { text: 'Ask me anything...', timestamp: new Date(), senderId: GEMINI_USER.id },
         unreadCount: 0,
         type: 'direct',
         participantIds: [currentUser.id, GEMINI_USER.id],
@@ -174,23 +192,31 @@ export function SidebarContentComponent() {
           </SidebarGroupLabel>
           <SidebarMenu>
             {allConversations.map((conv) => {
-              const otherParticipant = conv.type === 'direct' ? conv.participants?.find(p => p.id !== currentUser.id && p.id !== GEMINI_USER.id) : null;
-              const name = conv.name || (conv.id === 'conv-gemini' ? GEMINI_USER.name : otherParticipant?.name) || 'Conversation';
-              const avatarUrl = conv.avatarUrl || (conv.id === 'conv-gemini' ? GEMINI_USER.avatarUrl : otherParticipant?.avatarUrl);
+              const name = conv.name || 'Conversation';
+              const avatarUrl = conv.avatarUrl;
 
               return (
                 <SidebarMenuItem key={conv.id}>
                   <Link href={`/chat/${conv.id}`}>
                     <SidebarMenuButton
                       isActive={pathname === `/chat/${conv.id}`}
-                      className="justify-start w-full"
+                      className="justify-start w-full h-auto py-2"
                       tooltip={name}
+                      size="lg"
                     >
-                      <Avatar className="h-6 w-6">
+                      <Avatar className="h-8 w-8">
                         <AvatarImage src={avatarUrl} alt={name} />
                         <AvatarFallback>{getInitials(name ?? 'U')}</AvatarFallback>
                       </Avatar>
-                      <span className="truncate">{name}</span>
+                      <div className="flex flex-col items-start truncate">
+                        <span className="truncate font-semibold">{name}</span>
+                        {conv.lastMessage?.text && (
+                            <span className="text-xs text-muted-foreground truncate">
+                                {conv.lastMessage.text}
+                            </span>
+                        )}
+                      </div>
+
                       {conv.unreadCount > 0 && (
                         <div className="ml-auto h-5 min-w-[1.25rem] rounded-full bg-accent text-accent-foreground text-xs flex items-center justify-center px-1">
                           {conv.unreadCount}
