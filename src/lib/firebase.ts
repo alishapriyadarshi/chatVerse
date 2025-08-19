@@ -1,5 +1,5 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import { initializeApp, getApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 import { getStorage, FirebaseStorage } from "firebase/storage";
@@ -14,22 +14,17 @@ const firebaseConfig = {
   appId: "1:895330788794:web:0c2587553c246ab3ae2983"
 };
 
-// Initialize Firebase for client-side
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-let storage: FirebaseStorage;
-
-if (typeof window !== 'undefined') {
-    // This code only runs on the client
+// Initialize Firebase for client-side using a singleton pattern
+const getFirebaseApp = () => {
     if (!getApps().length) {
-        app = initializeApp(firebaseConfig);
-    } else {
-        app = getApp();
+        return initializeApp(firebaseConfig);
     }
-    auth = getAuth(app);
-    db = getFirestore(app);
-    storage = getStorage(app);
-}
+    return getApp();
+};
+
+const app: FirebaseApp = getFirebaseApp();
+const auth: Auth = getAuth(app);
+const db: Firestore = getFirestore(app);
+const storage: FirebaseStorage = getStorage(app);
 
 export { app, auth, db, storage };
