@@ -260,7 +260,9 @@ export function SidebarContentComponent() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Start a new chat</DialogTitle>
-            <DialogDescription>Select a user to start a one-on-one conversation.</DialogDescription>
+            <DialogDescription>
+              Select a user to start a one-on-one conversation.
+            </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
             {onlineUsers.length > 0 ? onlineUsers.map(user => (
