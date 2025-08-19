@@ -51,10 +51,10 @@ export function AuthForm() {
       await signInWithRedirect(auth, provider);
     } catch (error: any) {
       console.error("Error initiating sign in with Google: ", error);
-      let description = 'Could not sign you in with Google. Please try again.';
+       let description = 'Could not sign you in with Google. Please try again.';
        if (error.code === 'auth/unauthorized-domain') {
           description = `This domain is not authorized for sign-in. Please add it to the list of authorized domains in your Firebase console for project chatverse-v8eax.`;
-       } else if (error.code === 'auth/requests-to-this-api-are-blocked.' || error.code?.includes('identitytoolkit')) {
+       } else if (error.code?.includes('requests-to-this-api') || error.code?.includes('identitytoolkit')) {
          description = 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console for project chatverse-v8eax.';
        }
       toast({
