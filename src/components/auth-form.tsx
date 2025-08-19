@@ -54,7 +54,7 @@ export function AuthForm() {
             console.error("Error processing redirect result: ", error);
             let description = 'Could not complete sign in. Please try again.';
             if (error.code === 'auth/requests-to-this-api-are-blocked.' || error.code.includes('identitytoolkit')) {
-              description = 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console.';
+              description = 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console for project chatverse-v8eax.';
             }
             toast({
                 title: 'Sign In Failed',
@@ -80,7 +80,7 @@ export function AuthForm() {
       console.error("Error initiating sign in with Google: ", error);
       let description = 'Could not sign you in with Google. Please try again.';
        if (error.code === 'auth/requests-to-this-api-are-blocked.' || error.code.includes('identitytoolkit')) {
-         description = 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console.';
+         description = 'Project configuration is blocking login. Please check API key restrictions and authorized domains in your Firebase console for project chatverse-v8eax.';
        }
       toast({
         title: 'Sign In Failed',
@@ -116,7 +116,7 @@ export function AuthForm() {
       </CardHeader>
       <CardContent className="grid gap-4">
         <Button variant="outline" size="lg" className="bg-background/80 hover:bg-background" onClick={handleGoogleSignIn} disabled={isLoading}>
-            {isLoading ? 'Loading...' : (
+            {isLoading ? 'Processing...' : (
                 <>
                     <GoogleIcon className="mr-2" />
                     Sign In with Google

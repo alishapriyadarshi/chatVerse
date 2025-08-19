@@ -19,6 +19,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      setLoading(true);
       if (firebaseUser) {
         // User is signed in (Google or successfully as Anonymous)
         const userRef = doc(db, 'users', firebaseUser.uid);
@@ -43,11 +44,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const params = new URLSearchParams(window.location.search);
         const isGuestMode = params.get('guest') === 'true';
         
-        if (isGuestMode) {
+        if (isGuestMode && !auth.currentUser) {
           try {
             await signInAnonymously(auth);
             // onAuthStateChanged will be re-triggered by the line above,
-            // which will then handle the user document creation.
+            // which will then handle the user document creation. We don't set loading false here.
+            return;
           } catch (error) {
             console.error("Anonymous sign-in failed, creating a local guest user as a fallback:", error);
             // This is a fallback for when the backend config is broken
@@ -62,7 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUser(localGuestUser);
           }
         } else {
-          // No firebaseUser and not a guest flow, so no one is logged in.
+          // No firebaseUser and not in a guest flow, so no one is logged in.
           setUser(null);
         }
       }
