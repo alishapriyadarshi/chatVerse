@@ -5,7 +5,7 @@ import { AuthProvider } from '@/hooks/use-auth';
 
 export const metadata: Metadata = {
   title: 'ChatVerse',
-  description: 'A modern real-time chat application.',
+  description: 'A modern annonymous real-time chat application.',
 };
 
 export default function RootLayout({
