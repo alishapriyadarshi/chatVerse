@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Toaster } from '@/components/ui/toaster';
 import './globals.css';
 import { AuthProvider } from '@/hooks/use-auth';
+import { Suspense } from 'react';
 
 export const metadata: Metadata = {
   title: 'ChatVerse',
@@ -29,7 +30,9 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased h-full" suppressHydrationWarning>
         <AuthProvider>
-          {children}
+          <Suspense fallback={<div>Loading...</div>}>
+            {children}
+          </Suspense>
         </AuthProvider>
         <Toaster />
       </body>

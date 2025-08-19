@@ -16,9 +16,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({ user: null, loading: true });
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+function AuthHandler({ children }: { children: ReactNode }) {
+  const { loading, user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -27,20 +26,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const isGuestMode = searchParams.get('guest') === 'true';
     if (isGuestMode && !auth.currentUser && !loading) {
-        setLoading(true);
-        signInAnonymously(auth).catch((error: any) => {
-            console.error("Anonymous sign-in error:", error);
-            let description = 'Could not sign you in as a guest. Please try again.';
-            if (error.code === 'auth/admin-restricted-operation') {
-                description = 'Guest mode is disabled. Please enable Anonymous sign-in in the Firebase console for project chatverse-v8eax.';
-            }
-             toast({ title: 'Guest Sign In Failed', description, variant: 'destructive' });
-             router.replace('/');
-        }).finally(() => {
-            // onAuthStateChanged will handle setting loading to false
-        });
+      signInAnonymously(auth).catch((error: any) => {
+        console.error("Anonymous sign-in error:", error);
+        let description = 'Could not sign you in as a guest. Please try again.';
+        if (error.code === 'auth/admin-restricted-operation') {
+          description = 'Guest mode is disabled. Please enable Anonymous sign-in in the Firebase console for project chatverse-v8eax.';
+        }
+        toast({ title: 'Guest Sign In Failed', description, variant: 'destructive' });
+        router.replace('/');
+      });
     }
   }, [pathname, searchParams, router, toast, loading]);
+
+  useEffect(() => {
+    if (!loading && user) {
+        const isAuthPage = pathname === '/';
+        if (isAuthPage) {
+          router.replace('/chat');
+        }
+    }
+  }, [user, loading, pathname, router]);
+
+
+  return <>{children}</>;
+}
+
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
@@ -52,7 +66,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         let appUser: User;
         if (userSnap.exists()) {
           appUser = userSnap.data() as User;
-           // Update online status
           await updateDoc(userRef, { isOnline: true, lastSeen: serverTimestamp() });
         } else {
           const { uid, isAnonymous } = firebaseUser;
@@ -69,11 +82,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         
         setUser(appUser);
-        
-        const isAuthPage = pathname === '/';
-        if (isAuthPage) {
-          router.replace('/chat?guest=true');
-        }
       } else {
         setUser(null);
       }
@@ -81,11 +89,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [router, pathname]);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading }}>
-      {children}
+      <AuthHandler>{children}</AuthHandler>
     </AuthContext.Provider>
   );
 };
