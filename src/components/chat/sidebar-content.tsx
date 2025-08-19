@@ -57,7 +57,6 @@ export function SidebarContentComponent() {
         return convData;
       });
       const convos = await Promise.all(convosPromises);
-      // Sort conversations on the client
       convos.sort((a, b) => {
         const aTimestamp = a.lastMessage?.timestamp?.toMillis() || 0;
         const bTimestamp = b.lastMessage?.timestamp?.toMillis() || 0;
