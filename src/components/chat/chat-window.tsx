@@ -1,10 +1,8 @@
 
+
 'use client';
 import { GEMINI_USER } from '@/lib/dummy-data';
 import type { Conversation, Message as MessageType, User } from '@/lib/types';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { MoreVertical } from 'lucide-react';
 import { Message } from './message';
 import { MessageInput } from './message-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,6 +14,8 @@ import { collection, query, orderBy, onSnapshot, doc, getDoc, addDoc, serverTime
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { SidebarTrigger } from '../ui/sidebar';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { ChatHeader } from './chat-header';
 
 interface ChatWindowProps {
   conversationId: string;
@@ -319,27 +319,19 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
   const otherParticipant = conversation.type === 'direct' ? conversation.participants.find(p => p.id !== currentUser.id) : null;
   const conversationName = conversation.name || otherParticipant?.name || 'Conversation';
   const conversationAvatar = conversation.avatarUrl || otherParticipant?.avatarUrl;
+  const conversationDescription = conversation.type === 'group' 
+    ? `${conversation.participantIds.length} members`
+    : 'Online';
+
 
   return (
     <div className="flex flex-col h-full bg-card/75 backdrop-blur-xl rounded-2xl overflow-hidden">
-      <header className="flex items-center p-4 border-b border-border/50">
-        <SidebarTrigger className="md:hidden mr-2" />
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={conversationAvatar} alt={conversationName} />
-          <AvatarFallback>{getInitials(conversationName)}</AvatarFallback>
-        </Avatar>
-        <div className="ml-4">
-          <h2 className="font-semibold text-lg font-headline">{conversationName}</h2>
-          <p className="text-sm text-muted-foreground">
-            {conversation.type === 'group' 
-              ? `${conversation.participantIds.length} members`
-              : 'Online'}
-          </p>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" size="icon"><MoreVertical /></Button>
-        </div>
-      </header>
+      <ChatHeader
+        title={conversationName}
+        avatarUrl={conversationAvatar}
+        avatarFallback={getInitials(conversationName)}
+        description={conversationDescription}
+      />
       
       <ScrollArea className="flex-1" ref={scrollAreaRef}>
         <div className="p-6 space-y-6">
