@@ -74,6 +74,7 @@ export function SidebarContentComponent() {
   const handleLogout = async () => {
     try {
       await auth.signOut();
+      router.replace('/');
       window.location.assign('/');
     } catch (error) {
       console.error('Error signing out: ', error);
@@ -91,11 +92,13 @@ export function SidebarContentComponent() {
     // Check if a conversation already exists
     const existingConvo = conversations.find(c => 
         c.type === 'direct' && 
+        c.participantIds.length === 2 &&
+        c.participantIds.includes(currentUser.id) &&
         c.participantIds.includes(otherUser.id)
     );
 
     if (existingConvo) {
-      router.push(`/chat/${existingConvo.id}?guest=true`);
+      router.push(`/chat/${existingConvo.id}`);
       setIsModalOpen(false);
       return;
     }
@@ -106,13 +109,23 @@ export function SidebarContentComponent() {
         type: 'direct',
         participantIds: [currentUser.id, otherUser.id],
         createdAt: serverTimestamp(),
-        // participants will be populated by the listener
+        lastMessage: null,
+        unreadCount: 0,
       });
-      router.push(`/chat/${newConversationRef.id}?guest=true`);
+      router.push(`/chat/${newConversationRef.id}`);
       setIsModalOpen(false);
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error creating new chat: ", error);
-        toast({ title: 'Error', description: 'Could not start a new chat.', variant: 'destructive'});
+        if (error.code === 'permission-denied') {
+             toast({
+                title: 'Permission Denied',
+                description: "Guest users can't create chats. Please update your Firestore security rules to allow this.",
+                variant: 'destructive',
+                duration: 9000,
+            });
+        } else {
+            toast({ title: 'Error', description: 'Could not start a new chat.', variant: 'destructive'});
+        }
     }
   };
 
@@ -131,7 +144,9 @@ export function SidebarContentComponent() {
         avatarUrl: GEMINI_USER.avatarUrl,
         lastMessage: { text: 'Ask me anything...' },
         unreadCount: 0,
-      },
+        type: 'direct',
+        participantIds: [currentUser.id, GEMINI_USER.id],
+      } as Conversation,
       ...conversations,
   ];
 
@@ -160,12 +175,12 @@ export function SidebarContentComponent() {
           <SidebarMenu>
             {allConversations.map((conv) => {
               const otherParticipant = conv.type === 'direct' ? conv.participants?.find(p => p.id !== currentUser.id && p.id !== GEMINI_USER.id) : null;
-              const name = conv.name || otherParticipant?.name || 'Conversation';
-              const avatarUrl = conv.avatarUrl || otherParticipant?.avatarUrl;
+              const name = conv.name || (conv.id === 'conv-gemini' ? GEMINI_USER.name : otherParticipant?.name) || 'Conversation';
+              const avatarUrl = conv.avatarUrl || (conv.id === 'conv-gemini' ? GEMINI_USER.avatarUrl : otherParticipant?.avatarUrl);
 
               return (
                 <SidebarMenuItem key={conv.id}>
-                  <Link href={`/chat/${conv.id}?guest=true`}>
+                  <Link href={`/chat/${conv.id}`}>
                     <SidebarMenuButton
                       isActive={pathname === `/chat/${conv.id}`}
                       className="justify-start w-full"
