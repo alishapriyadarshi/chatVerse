@@ -1,3 +1,4 @@
+
 'use client';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,11 +40,12 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export function AuthForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const { loading } = useAuth();
-  const [isSigningIn, setIsSigningIn] = useState(false);
+  const { loading: isAuthLoading } = useAuth();
+  const [isGoogleSignInProgress, setIsGoogleSignInProgress] = useState(false);
+  const [isGuestSignInProgress, setIsGuestSignInProgress] = useState(false);
 
   const handleGoogleSignIn = async () => {
-    setIsSigningIn(true);
+    setIsGoogleSignInProgress(true);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithRedirect(auth, provider);
@@ -60,16 +62,17 @@ export function AuthForm() {
         description,
         variant: 'destructive',
       });
-      setIsSigningIn(false);
+      setIsGoogleSignInProgress(false);
     }
   };
 
   const handleGuestSignIn = () => {
-    setIsSigningIn(true);
+    setIsGuestSignInProgress(true);
     router.push('/?guest=true');
   };
 
-  const isProcessing = loading || isSigningIn;
+  const isGoogleProcessing = isAuthLoading || isGoogleSignInProgress;
+  const isGuestProcessing = isAuthLoading || isGuestSignInProgress;
   
   return (
     <Card className="w-full max-w-sm frosted-glass bg-card/80 border-border/30 shadow-2xl">
@@ -82,16 +85,16 @@ export function AuthForm() {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <Button variant="outline" size="lg" className="bg-background/80 hover:bg-background" onClick={handleGoogleSignIn} disabled={isProcessing}>
-            {isProcessing ? 'Processing...' : (
+        <Button variant="outline" size="lg" className="bg-background/80 hover:bg-background" onClick={handleGoogleSignIn} disabled={isGoogleProcessing || isGuestProcessing}>
+            {isGoogleProcessing ? 'Processing...' : (
                 <>
                     <GoogleIcon className="mr-2" />
                     Sign In with Google
                 </>
             )}
         </Button>
-        <Button variant="secondary" size="lg" className="bg-accent/70 hover:bg-accent text-accent-foreground" onClick={handleGuestSignIn} disabled={isProcessing}>
-           {isProcessing ? 'Processing...' : 'Continue as Guest'}
+        <Button variant="secondary" size="lg" className="bg-accent/70 hover:bg-accent text-accent-foreground" onClick={handleGuestSignIn} disabled={isGuestProcessing || isGoogleProcessing}>
+           {isGuestProcessing ? 'Processing...' : 'Continue as Guest'}
         </Button>
       </CardContent>
     </Card>
