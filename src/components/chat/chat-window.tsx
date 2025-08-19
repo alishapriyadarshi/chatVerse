@@ -279,13 +279,21 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
         } else {
              setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), optimisticMessage, geminiMessage]);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error getting response from Gemini:", error);
+        
+        let errorText = "Sorry, I encountered an error. Please try again.";
+        const errorMessageStr = error.toString();
+
+        if (errorMessageStr.includes('503') || errorMessageStr.toLowerCase().includes('service unavailable') || errorMessageStr.toLowerCase().includes('model is overloaded')) {
+          errorText = "The AI is currently busy. Please try again in a moment.";
+        }
+        
         const errorMessage: MessageType = {
           id: `err-${Date.now()}`,
           senderId: GEMINI_USER.id,
           sender: GEMINI_USER,
-          text: "Sorry, I encountered an error. Please try again.",
+          text: errorText,
           timestamp: new Date(),
         };
          setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), optimisticMessage, errorMessage]);
