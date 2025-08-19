@@ -30,9 +30,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased h-full" suppressHydrationWarning>
         <AuthProvider>
-          <Suspense fallback={<div>Loading...</div>}>
             {children}
-          </Suspense>
         </AuthProvider>
         <Toaster />
       </body>

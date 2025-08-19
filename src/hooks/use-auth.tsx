@@ -18,7 +18,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({ user: null, loading: true });
 
-function AuthHandler({ children }: { children: ReactNode }) {
+function AuthHandler() {
   const { loading, user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -50,7 +50,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
   }, [user, loading, pathname, router]);
 
 
-  return <>{children}</>;
+  return null;
 }
 
 
@@ -96,7 +96,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{ user, loading }}>
-        <AuthHandler>{children}</AuthHandler>
+        <Suspense fallback={null}>
+            <AuthHandler/>
+        </Suspense>
+        {children}
     </AuthContext.Provider>
   );
 };
