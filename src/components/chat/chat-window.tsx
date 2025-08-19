@@ -15,6 +15,7 @@ import { db, storage } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, doc, getDoc, addDoc, serverTimestamp, updateDoc, increment } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
+import { SidebarTrigger } from '../ui/sidebar';
 
 interface ChatWindowProps {
   conversationId: string;
@@ -322,6 +323,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
   return (
     <div className="flex flex-col h-full bg-card/75 backdrop-blur-xl rounded-2xl overflow-hidden">
       <header className="flex items-center p-4 border-b border-border/50">
+        <SidebarTrigger className="md:hidden mr-2" />
         <Avatar className="h-10 w-10">
           <AvatarImage src={conversationAvatar} alt={conversationName} />
           <AvatarFallback>{getInitials(conversationName)}</AvatarFallback>
