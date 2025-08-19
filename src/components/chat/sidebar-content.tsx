@@ -119,7 +119,7 @@ export function SidebarContentComponent() {
         if (error.code === 'permission-denied') {
              toast({
                 title: 'Permission Denied',
-                description: "Guest users can't create chats. Please update your Firestore security rules to allow this.",
+                description: "There's an issue with database permissions. Please deploy the new security rules by running 'firebase deploy --only firestore' in your terminal.",
                 variant: 'destructive',
                 duration: 9000,
             });
