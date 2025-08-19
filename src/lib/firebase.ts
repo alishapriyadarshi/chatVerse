@@ -6,13 +6,12 @@ import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  "projectId": "chatverse-v8eax",
-  "appId": "1:895330788794:web:0c2587553c246ab3ae2983",
-  "storageBucket": "chatverse-v8eax.appspot.com",
-  "apiKey": "AIzaSyDj7i04MjkQ3ckwUWjcNt6zvImL6cQ7FH4",
-  "authDomain": "chatverse-v8eax.firebaseapp.com",
-  "measurementId": "",
-  "messagingSenderId": "895330788794"
+  apiKey: "AIzaSyA2m3v7D8qjiK4C3SE3rLzH_NJbaE24304",
+  authDomain: "chatverse-v8eax.firebaseapp.com",
+  projectId: "chatverse-v8eax",
+  storageBucket: "chatverse-v8eax.firebasestorage.app",
+  messagingSenderId: "895330788794",
+  appId: "1:895330788794:web:0c2587553c246ab3ae2983"
 };
 
 
