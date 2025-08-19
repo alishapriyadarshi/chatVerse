@@ -5,11 +5,10 @@ import { Button } from '@/components/ui/button';
 import { signInWithRedirect, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
+    <svg
     {...props}
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 48 48"
@@ -28,6 +27,10 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
       fill="#4CAF50"
       d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
     />
+    <path
+      fill="#1976D2"
+      d="M43.611,20.083L43.595,20L42,20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C39.902,36.636,44,30.85,44,24C44,22.659,43.862,21.35,43.611,20.083z"
+    />
   </svg>
 );
 
@@ -35,11 +38,9 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export function AuthForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const { loading: authLoading } = useAuth();
-  const [isSigningIn, setIsSigningIn] = useState(false);
+  const { loading } = useAuth();
 
   const handleGoogleSignIn = async () => {
-    setIsSigningIn(true);
     const provider = new GoogleAuthProvider();
     try {
       // The user will be redirected. The useAuth hook will handle the result on return.
@@ -57,18 +58,14 @@ export function AuthForm() {
         description,
         variant: 'destructive',
       });
-      setIsSigningIn(false);
     }
   };
 
   const handleGuestSignIn = async () => {
-    setIsSigningIn(true);
     // We just navigate. The useAuth hook will detect the 'guest=true' param
     // and handle the anonymous sign-in process.
     router.push('/?guest=true');
   };
-
-  const isLoading = authLoading || isSigningIn;
   
   return (
     <Card className="w-full max-w-sm frosted-glass bg-card/80 border-border/30 shadow-2xl">
@@ -81,16 +78,16 @@ export function AuthForm() {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <Button variant="outline" size="lg" className="bg-background/80 hover:bg-background" onClick={handleGoogleSignIn} disabled={isLoading}>
-            {isLoading ? 'Processing...' : (
+        <Button variant="outline" size="lg" className="bg-background/80 hover:bg-background" onClick={handleGoogleSignIn} disabled={loading}>
+            {loading ? 'Processing...' : (
                 <>
                     <GoogleIcon className="mr-2" />
                     Sign In with Google
                 </>
             )}
         </Button>
-        <Button variant="secondary" size="lg" className="bg-accent/70 hover:bg-accent text-accent-foreground" onClick={handleGuestSignIn} disabled={isLoading}>
-            Continue as Guest
+        <Button variant="secondary" size="lg" className="bg-accent/70 hover:bg-accent text-accent-foreground" onClick={handleGuestSignIn} disabled={loading}>
+           {loading ? 'Processing...' : 'Continue as Guest'}
         </Button>
       </CardContent>
     </Card>
