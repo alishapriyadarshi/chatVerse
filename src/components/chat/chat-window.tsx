@@ -19,6 +19,32 @@ interface ChatWindowProps {
   conversationId: string;
 }
 
+// A simple cache for user data to avoid repeated fetches
+const userCache = new Map<string, User>();
+
+async function getUser(userId: string): Promise<User | undefined> {
+  if (userCache.has(userId)) {
+    return userCache.get(userId);
+  }
+  if (userId === GEMINI_USER.id) {
+    userCache.set(GEMINI_USER.id, GEMINI_USER);
+    return GEMINI_USER;
+  }
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const user = userSnap.data() as User;
+      userCache.set(userId, user);
+      return user;
+    }
+  } catch (error) {
+    console.error("Error fetching user:", error);
+  }
+  return undefined;
+}
+
+
 export function ChatWindow({ conversationId }: ChatWindowProps) {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
@@ -52,9 +78,9 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
           if (doc.exists()) {
              const convData = { id: doc.id, ...doc.data() } as Conversation;
             // Fetch full user objects for participants
-            const participantPromises = convData.participantIds.map(id => getDoc(db, 'users', id));
-            const participantDocs = await Promise.all(participantPromises);
-            convData.participants = participantDocs.map(pDoc => pDoc.data() as User);
+            const participantPromises = convData.participantIds.map(id => getUser(id));
+            const participants = await Promise.all(participantPromises);
+            convData.participants = participants.filter(Boolean) as User[];
             setConversation(convData);
           } else {
             console.error("Conversation not found!");
@@ -74,17 +100,16 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
   }, [conversationId, currentUser]);
   
   useEffect(() => {
-    if (!conversationId || conversationId === 'conv-gemini') {
-        if (conversationId === 'conv-gemini') {
-            setMessages([{
-                id: 'gem-intro',
-                sender: GEMINI_USER,
-                text: "Hello! How can I help you today?",
-                timestamp: new Date(),
-            }]);
-        } else {
-            setMessages([]);
-        }
+    if (!conversationId || !currentUser) return;
+
+    if (conversationId === 'conv-gemini') {
+        setMessages([{
+            id: 'gem-intro',
+            senderId: GEMINI_USER.id,
+            sender: GEMINI_USER,
+            text: "Hello! How can I help you today?",
+            timestamp: new Date(),
+        }]);
         return;
     };
 
@@ -93,16 +118,22 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
       orderBy('timestamp', 'asc')
     );
 
-    const unsubscribe = onSnapshot(messagesQuery, (querySnapshot) => {
-      const msgs: MessageType[] = [];
-      querySnapshot.forEach((doc) => {
-        msgs.push({ id: doc.id, ...doc.data() } as MessageType);
+    const unsubscribe = onSnapshot(messagesQuery, async (querySnapshot) => {
+      const msgsPromises = querySnapshot.docs.map(async (doc) => {
+        const data = doc.data();
+        const sender = await getUser(data.senderId);
+        return { 
+          id: doc.id, 
+          ...data,
+          sender, // Populate sender object
+        } as MessageType;
       });
+      const msgs = await Promise.all(msgsPromises);
       setMessages(msgs);
     });
 
     return () => unsubscribe();
-  }, [conversationId]);
+  }, [conversationId, currentUser]);
 
 
   useEffect(() => {
@@ -143,12 +174,8 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
       }
     }
     
-    const newMessage: Omit<MessageType, 'id' | 'timestamp'> & { timestamp: any } = {
-      sender: {
-        id: currentUser.id,
-        name: currentUser.name,
-        avatarUrl: currentUser.avatarUrl,
-      },
+    const newMessageData = {
+      senderId: currentUser.id,
       text,
       imageUrl,
       timestamp: serverTimestamp(),
@@ -158,14 +185,17 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
 
     const tempMessageId = `temp-${Date.now()}`;
     const optimisticMessage: MessageType = {
-        ...newMessage,
         id: tempMessageId,
+        senderId: currentUser.id,
+        sender: currentUser,
+        text,
+        imageUrl,
         timestamp: new Date()
     };
 
     // For non-gemini conversations, add the message to firestore immediately
     if (!isGeminiConversation) {
-        addDoc(collection(db, 'conversations', conversation.id, 'messages'), newMessage);
+        addDoc(collection(db, 'conversations', conversation.id, 'messages'), newMessageData);
     } else {
         // For gemini, we add it optimistically
         setMessages(prev => [...prev, optimisticMessage]);
@@ -182,7 +212,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
         const history = [...messages, optimisticMessage]
             .slice(-10) // Limit history
             .map(msg => ({
-                role: msg.sender.id === currentUser.id ? 'user' as const : 'model' as const,
+                role: msg.senderId === currentUser.id ? 'user' as const : 'model' as const,
                 content: msg.text,
             }));
         
@@ -193,17 +223,18 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
 
         const geminiMessage: MessageType = {
           id: `msg-${Date.now() + 1}`,
+          senderId: GEMINI_USER.id,
           sender: GEMINI_USER,
           text: responseText,
           timestamp: new Date(),
         };
 
         if (!isGeminiConversation) {
-            const geminiMessageForDb: Omit<MessageType, 'id'| 'timestamp'> & { timestamp: any } = {
-                ...geminiMessage,
+            const geminiMessageForDb = {
+                senderId: GEMINI_USER.id,
+                text: responseText,
                 timestamp: serverTimestamp()
             };
-            delete (geminiMessageForDb as any).id;
             addDoc(collection(db, 'conversations', conversation.id, 'messages'), geminiMessageForDb);
         } else {
              setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), optimisticMessage, geminiMessage]);
@@ -212,6 +243,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
         console.error("Error getting response from Gemini:", error);
         const errorMessage: MessageType = {
           id: `err-${Date.now()}`,
+          senderId: GEMINI_USER.id,
           sender: GEMINI_USER,
           text: "Sorry, I encountered an error. Please try again.",
           timestamp: new Date(),

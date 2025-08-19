@@ -39,6 +39,18 @@ export function Message({ message, currentUser }: MessageProps) {
     return () => clearInterval(intervalId);
   }, [message.timestamp]);
   
+  if (!message.sender) {
+    // Render a skeleton or a placeholder if sender data is not yet loaded
+    return (
+        <div className="flex items-end gap-3 justify-start animate-pulse">
+            <div className="h-8 w-8 rounded-full bg-muted"></div>
+            <div className="flex flex-col gap-1 items-start">
+                <div className="p-3 rounded-2xl bg-muted w-48 h-10"></div>
+            </div>
+        </div>
+    );
+  }
+
   const isSender = message.sender.id === currentUser.id;
   
   const getInitials = (name: string) => {

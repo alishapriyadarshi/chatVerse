@@ -11,7 +11,8 @@ export type User = {
 
 export type Message = {
   id: string;
-  sender: User;
+  senderId: string;
+  sender?: User; // Populated on the client
   text: string;
   imageUrl?: string;
   timestamp: Timestamp | Date; // Allow both for local and server data
