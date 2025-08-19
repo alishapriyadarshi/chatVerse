@@ -7,6 +7,7 @@ export type User = {
   isGuest?: boolean;
   isOnline?: boolean;
   lastSeen?: Timestamp;
+  geminiMessageCount?: number;
 };
 
 export type Message = {
@@ -23,7 +24,7 @@ export type Conversation = {
   type: 'group' | 'direct';
   name?: string; // For groups
   participants: User[];
-  lastMessage: { text: string; timestamp: any, senderId: string; } | null;
+  lastMessage: { text: string; timestamp: Timestamp, senderId: string; } | null;
   unreadCount: number;
   avatarUrl?: string; // For groups or direct chat partner
   participantIds: string[];

@@ -12,7 +12,7 @@ import { useEffect, useState, useRef } from 'react';
 import { chat } from '@/ai/flows/chat-flow';
 import { useAuth } from '@/hooks/use-auth';
 import { db, storage } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, getDoc, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, getDoc, addDoc, serverTimestamp, updateDoc, increment } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 
@@ -153,17 +153,27 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
     if (!currentUser || !conversation) return;
     if (!text.trim() && !imageDataUrl) return;
 
+    const isGeminiConversation = conversation.id === 'conv-gemini';
+
+    if (isGeminiConversation && currentUser.isGuest) {
+      const userDocRef = doc(db, 'users', currentUser.id);
+      const userDoc = await getDoc(userDocRef);
+      const userData = userDoc.data();
+      const messageCount = userData?.geminiMessageCount ?? 0;
+
+      if (messageCount >= 10) {
+        toast({
+          title: 'Message limit reached',
+          description: 'As a guest, you can send up to 10 messages to Gemini.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     let imageUrl: string | undefined = undefined;
 
     if (imageDataUrl) {
-        if(currentUser.isGuest) {
-            toast({
-                title: "Feature unavailable for guests",
-                description: "Guests cannot send images.",
-                variant: "destructive"
-            });
-            return;
-        }
       const storageRef = ref(storage, `chat-images/${conversation.id}/${Date.now()}`);
       try {
         await uploadString(storageRef, imageDataUrl, 'data_url');
@@ -190,8 +200,6 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
       newMessageData.imageUrl = imageUrl;
     }
 
-    const isGeminiConversation = conversation.id === 'conv-gemini';
-
     const tempMessageId = `temp-${Date.now()}`;
     const optimisticMessage: MessageType = {
         id: tempMessageId,
@@ -207,7 +215,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
         await addDoc(collection(db, 'conversations', conversation.id, 'messages'), newMessageData);
         await updateDoc(doc(db, 'conversations', conversation.id), {
           lastMessage: {
-            text: text,
+            text: text || "Image",
             senderId: currentUser.id,
             timestamp: serverTimestamp(),
           },
@@ -226,6 +234,13 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
     if (shouldGeminiRespond) {
       setIsTyping(true);
       try {
+        if (isGeminiConversation && currentUser.isGuest) {
+            const userDocRef = doc(db, 'users', currentUser.id);
+            await updateDoc(userDocRef, {
+              geminiMessageCount: increment(1)
+            });
+        }
+
         const history = [...messages, optimisticMessage]
             .slice(-10) // Limit history
             .map(msg => ({

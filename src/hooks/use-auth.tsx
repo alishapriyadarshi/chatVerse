@@ -1,13 +1,15 @@
 
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, User as FirebaseUser, signInAnonymously } from 'firebase/auth';
+import { createContext, useContext, useEffect, useState, ReactNode, Suspense } from 'react';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import type { User } from '@/lib/types';
 import { doc, setDoc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { signInAnonymously } from 'firebase/auth';
 import { useToast } from './use-toast';
+
 
 interface AuthContextType {
   user: User | null;
@@ -76,6 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             isGuest: isAnonymous,
             isOnline: true,
             lastSeen: serverTimestamp() as any,
+            geminiMessageCount: 0,
           };
           await setDoc(userRef, newUser);
           appUser = newUser;
@@ -93,7 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{ user, loading }}>
-      <AuthHandler>{children}</AuthHandler>
+        <AuthHandler>{children}</AuthHandler>
     </AuthContext.Provider>
   );
 };
