@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { onAuthStateChanged, User as FirebaseUser, signInAnonymously } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import type { User } from '@/lib/types';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useToast } from './use-toast';
 
@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const isGuestMode = searchParams.get('guest') === 'true';
-    if (isGuestMode && !auth.currentUser) {
+    if (isGuestMode && !auth.currentUser && !loading) {
         setLoading(true);
         signInAnonymously(auth).catch((error: any) => {
             console.error("Anonymous sign-in error:", error);
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // onAuthStateChanged will handle setting loading to false
         });
     }
-  }, [pathname, searchParams, router, toast]);
+  }, [pathname, searchParams, router, toast, loading]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
@@ -52,14 +52,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         let appUser: User;
         if (userSnap.exists()) {
           appUser = userSnap.data() as User;
+           // Update online status
+          await updateDoc(userRef, { isOnline: true, lastSeen: serverTimestamp() });
         } else {
-          const { uid, displayName, photoURL, isAnonymous } = firebaseUser;
+          const { uid, isAnonymous } = firebaseUser;
           const newUser: User = {
             id: uid,
-            name: isAnonymous ? `Guest #${uid.slice(0, 4)}` : (displayName || 'User'),
-            avatarUrl: isAnonymous ? `https://placehold.co/100x100?text=G` : (photoURL || `https://placehold.co/100x100?text=${(displayName?.charAt(0) || 'U').toUpperCase()}`),
-            secretId: isAnonymous ? `GUEST-${uid.slice(0, 8).toUpperCase()}`: `USER-${uid.slice(0, 8).toUpperCase()}`,
+            name: `Guest #${uid.slice(0, 4)}`,
+            avatarUrl: `https://placehold.co/100x100?text=${uid.slice(0,1).toUpperCase()}`,
             isGuest: isAnonymous,
+            isOnline: true,
+            lastSeen: serverTimestamp() as any,
           };
           await setDoc(userRef, newUser);
           appUser = newUser;
@@ -69,8 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         const isAuthPage = pathname === '/';
         if (isAuthPage) {
-          const newPath = appUser.isGuest ? '/chat?guest=true' : '/chat';
-          router.replace(newPath);
+          router.replace('/chat?guest=true');
         }
       } else {
         setUser(null);

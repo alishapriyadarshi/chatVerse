@@ -1,5 +1,5 @@
 'use client';
-import { DUMMY_CONVERSATIONS, GEMINI_USER } from '@/lib/dummy-data';
+import { GEMINI_USER } from '@/lib/dummy-data';
 import type { Conversation, Message as MessageType, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -7,12 +7,11 @@ import { MoreVertical } from 'lucide-react';
 import { Message } from './message';
 import { MessageInput } from './message-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { chat } from '@/ai/flows/chat-flow';
 import { useAuth } from '@/hooks/use-auth';
 import { db, storage } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, getDoc, addDoc, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 
@@ -49,9 +48,14 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
         });
       } else {
         const convRef = doc(db, 'conversations', conversationId);
-        unsubConversation = onSnapshot(convRef, (doc) => {
+        unsubConversation = onSnapshot(convRef, async (doc) => {
           if (doc.exists()) {
-            setConversation({ id: doc.id, ...doc.data() } as Conversation);
+             const convData = { id: doc.id, ...doc.data() } as Conversation;
+            // Fetch full user objects for participants
+            const participantPromises = convData.participantIds.map(id => getDoc(db, 'users', id));
+            const participantDocs = await Promise.all(participantPromises);
+            convData.participants = participantDocs.map(pDoc => pDoc.data() as User);
+            setConversation(convData);
           } else {
             console.error("Conversation not found!");
             setConversation(null);
@@ -78,6 +82,8 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
                 text: "Hello! How can I help you today?",
                 timestamp: new Date(),
             }]);
+        } else {
+            setMessages([]);
         }
         return;
     };
@@ -157,15 +163,17 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
         timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, optimisticMessage]);
-
+    // For non-gemini conversations, add the message to firestore immediately
     if (!isGeminiConversation) {
-        await addDoc(collection(db, 'conversations', conversation.id, 'messages'), newMessage);
+        addDoc(collection(db, 'conversations', conversation.id, 'messages'), newMessage);
+    } else {
+        // For gemini, we add it optimistically
+        setMessages(prev => [...prev, optimisticMessage]);
     }
     
     const shouldGeminiRespond = 
       isGeminiConversation ||
-      conversation.participants.some(p => p.id === GEMINI_USER.id) ||
+      (conversation.participants && conversation.participants.some(p => p.id === GEMINI_USER.id)) ||
       text.toLowerCase().includes('@gemini');
 
     if (shouldGeminiRespond) {
@@ -196,7 +204,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
                 timestamp: serverTimestamp()
             };
             delete (geminiMessageForDb as any).id;
-            await addDoc(collection(db, 'conversations', conversation.id, 'messages'), geminiMessageForDb);
+            addDoc(collection(db, 'conversations', conversation.id, 'messages'), geminiMessageForDb);
         } else {
              setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), optimisticMessage, geminiMessage]);
         }
@@ -208,19 +216,17 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
           text: "Sorry, I encountered an error. Please try again.",
           timestamp: new Date(),
         };
-         setMessages(prev => [...prev, errorMessage]);
+         setMessages(prev => [...prev.filter(m => m.id !== tempMessageId), optimisticMessage, errorMessage]);
       } finally {
         setIsTyping(false);
       }
-    } else {
-        setMessages(prev => prev.filter(m => m.id !== tempMessageId));
     }
   };
   
   if (!currentUser || !conversation) {
     return (
       <div className="flex h-full items-center justify-center bg-card/75 backdrop-blur-xl rounded-2xl">
-        <p>Loading...</p>
+        <p>Loading conversation...</p>
       </div>
     );
   }
@@ -230,16 +236,18 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
   };
 
   const otherParticipant = conversation.type === 'direct' ? conversation.participants.find(p => p.id !== currentUser.id) : null;
+  const conversationName = conversation.name || otherParticipant?.name || 'Conversation';
+  const conversationAvatar = conversation.avatarUrl || otherParticipant?.avatarUrl;
 
   return (
     <div className="flex flex-col h-full bg-card/75 backdrop-blur-xl rounded-2xl overflow-hidden">
       <header className="flex items-center p-4 border-b border-border/50">
         <Avatar className="h-10 w-10">
-          <AvatarImage src={conversation.avatarUrl || otherParticipant?.avatarUrl} alt={conversation.name || otherParticipant?.name} />
-          <AvatarFallback>{getInitials(conversation.name || otherParticipant?.name || 'U')}</AvatarFallback>
+          <AvatarImage src={conversationAvatar} alt={conversationName} />
+          <AvatarFallback>{getInitials(conversationName)}</AvatarFallback>
         </Avatar>
         <div className="ml-4">
-          <h2 className="font-semibold text-lg font-headline">{conversation.name || otherParticipant?.name}</h2>
+          <h2 className="font-semibold text-lg font-headline">{conversationName}</h2>
           <p className="text-sm text-muted-foreground">
             {conversation.type === 'group' 
               ? `${conversation.participantIds.length} members`

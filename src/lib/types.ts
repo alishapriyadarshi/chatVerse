@@ -4,8 +4,9 @@ export type User = {
   id: string;
   name: string;
   avatarUrl: string;
-  secretId?: string;
   isGuest?: boolean;
+  isOnline?: boolean;
+  lastSeen?: Timestamp;
 };
 
 export type Message = {
