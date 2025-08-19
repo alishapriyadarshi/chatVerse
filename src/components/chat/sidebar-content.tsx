@@ -1,3 +1,4 @@
+
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -35,8 +36,7 @@ export function SidebarContentComponent() {
 
     const convosQuery = query(
       collection(db, 'conversations'),
-      where('participantIds', 'array-contains', currentUser.id),
-      orderBy('lastMessage.timestamp', 'desc')
+      where('participantIds', 'array-contains', currentUser.id)
     );
 
     const unsubConversations = onSnapshot(convosQuery, async (snapshot) => {
@@ -46,7 +46,8 @@ export function SidebarContentComponent() {
         if (convData.type === 'direct') {
           const otherParticipantId = convData.participantIds.find(id => id !== currentUser.id);
           if (otherParticipantId) {
-            const userSnap = await getDoc(db, 'users', otherParticipantId);
+            const userRef = doc(db, 'users', otherParticipantId);
+            const userSnap = await getDoc(userRef);
             if (userSnap.exists()) {
               const otherUser = userSnap.data() as User;
               convData.name = otherUser.name;
@@ -57,6 +58,12 @@ export function SidebarContentComponent() {
         return convData;
       });
       const convos = await Promise.all(convosPromises);
+      // Sort conversations on the client
+      convos.sort((a, b) => {
+        const aTimestamp = a.lastMessage?.timestamp?.toMillis() || 0;
+        const bTimestamp = b.lastMessage?.timestamp?.toMillis() || 0;
+        return bTimestamp - aTimestamp;
+      });
       setConversations(convos);
     });
 
